@@ -12,6 +12,12 @@
     else tg = S.exit;
     const ch = S.chests.find((c) => !c.open && c.f === p.f && Math.abs(c.x - p.x) < 500);
     if (ch && !S.boss) tg = ch;
+    // 同一層附近有糖果就順路撿（真人也會）
+    if (!S.boss && p.lad == null) {
+      let best = null, bd = 320;
+      for (const g of S.gems) { if (g.pull || Math.abs(g.fy - F(p.f)) > 5) continue; const d = Math.abs(g.x - p.x); if (d < bd) { bd = d; best = g; } }
+      if (best) tg = { x: best.x, f: p.f };
+    }
     if (p.lad != null) {
       const l = S.ladders[p.lad];
       return { x: 0, y: tg.f > l.f ? -1 : 1 };

@@ -8,7 +8,7 @@
   const lastAt = {};
   let want = null, cur = null, urgent = 0;
   // 歌：用 <audio> 播（不用整首解碼進記憶體），接進 WebAudio 才吃得到靜音與音量
-  const song = new Audio('music/bgm.m4a?v=3'); song.loop = true; song.preload = 'auto';
+  const song = new Audio('music/bgm.m4a?v=4'); song.loop = true; song.preload = 'auto';
   let songOk = true, songNode = null, songBus = null;
   song.addEventListener('error', () => { songOk = false; if (cur === 'song') { cur = null; startMusic('song'); } });
 
@@ -161,6 +161,10 @@
     exit() { const t = ac.currentTime; [74, 81, 86].forEach((m, i) => tone('sine', mtof(m), t + i * 0.12, 0.003, 0.7, 0.09, sfxBus)); },
     clear() { const t = ac.currentTime; [74, 78, 81, 86, 81, 86, 90].forEach((m, i) => tone('square', mtof(m), t + i * 0.11, 0.003, i === 6 ? 0.8 : 0.16, 0.06, sfxBus)); },
     dead() { const t = ac.currentTime; [69, 68, 67, 62].forEach((m, i) => tone('triangle', mtof(m), t + i * 0.22, 0.003, i === 3 ? 0.8 : 0.24, 0.1, sfxBus)); },
+    bounce() { if (!limit('bounce', 70)) return; const t = ac.currentTime; tone('sine', 220, t, 0.002, 0.12, 0.2, sfxBus, 110); },
+    flute() { const t = ac.currentTime; [79, 83, 86].forEach((m, i) => tone('triangle', mtof(m), t + i * 0.06, 0.02, 0.16, 0.06, sfxBus)); },
+    dust() { const t = ac.currentTime; noise(t, 0.3, sfxBus, { type: 'lowpass', f: 1200, f2: 400, vol: 0.14 }); },
+    summon() { const t = ac.currentTime; tone('sine', 300, t, 0.05, 0.5, 0.08, sfxBus, 600); },
     poof() { const t = ac.currentTime; noise(t, 0.25, sfxBus, { type: 'lowpass', f: 1600, f2: 300, vol: 0.15 }); },
     transform() { const t = ac.currentTime; [62, 66, 69, 74, 78, 81, 86].forEach((m, i) => tone('square', mtof(m), t + i * 0.05, 0.003, 0.12, 0.05, sfxBus)); noise(t + 0.35, 0.4, sfxBus, { type: 'highpass', f: 2000, vol: 0.12 }); },
     tap() { const t = ac.currentTime; tone('triangle', 660, t, 0.002, 0.05, 0.06, sfxBus); },

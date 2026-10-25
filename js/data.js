@@ -3,7 +3,8 @@
   // 世界尺寸（px）：一間教室 600×400，樓板 40 厚；小編約 110 高
   const ROOM = { W: 600, H: 400, T: 40 };
 
-  const PLAYER = { hp: 100, spd: 210, climb: 180, r: 26, h: 110, magnet: 90, pick: 60, search: 2 };
+  // magnet：糖果在這個距離內才會飛過來（太遠要自己走過去撿）
+  const PLAYER = { hp: 100, spd: 210, climb: 180, r: 26, h: 110, magnet: 200, pick: 60, search: 2 };
 
   // 升級經驗：第 n 級升到 n+1 要幾顆糖
   const needXp = (lv) => Math.round(3 + lv * 2.2 + lv * lv * 0.08);
@@ -15,40 +16,57 @@
     ghost:   { name: '床單鬼', img: 'm-ghost', hp: 46, spd: 70, r: 25, dmg: 7, xp: 2, fly: true },
     mummy:   { name: '衛生紙木乃伊', img: 'm-mummy', hp: 120, spd: 62, r: 27, dmg: 10, xp: 4 },
     boss:    { name: '南瓜大王', img: 'm-boss', hp: 16000, spd: 42, r: 74, dmg: 20, xp: 60, boss: true },
+    ghostking: { name: '床單鬼王', img: 'm-ghostboss', hp: 4500, spd: 50, r: 62, dmg: 14, xp: 40, boss: true, fly: true, summon: 'ghost' },
   };
 
-  // 技能：kind w＝武器、p＝被動；lv 是每一級的數值（1～5 級），desc 是卡片上的說明
+  // 技能：kind w＝武器（最多同時帶 MAXW 種）、p＝被動；rare 稀有度 1 普通、2 稀有、3 史詩（越稀有越少出現）
+  // icon：技能圖示表 skills 的格子，100 以上是第二張 skills2；lv 是每一級的數值（1～5 級），desc 是卡片上的說明
   const SKILLS = {
-    candy: { name: '粉筆連發', icon: 0, kind: 'w',
+    candy: { name: '粉筆連發', icon: 0, kind: 'w', rare: 1,
       lv: [{ cd: .6, n: 1, dmg: 20, pierce: 0 }, { cd: .55, n: 2, dmg: 22, pierce: 0 }, { cd: .5, n: 2, dmg: 26, pierce: 1 }, { cd: .45, n: 3, dmg: 30, pierce: 1 }, { cd: .38, n: 4, dmg: 36, pierce: 2 }],
       desc: ['自動朝最近的怪丟粉筆', '一次丟 2 根', '更痛，可以穿過 1 隻', '一次丟 3 根', '一次 4 根，穿過 2 隻'] },
-    glow: { name: '跳繩', icon: 1, kind: 'w',
+    glow: { name: '跳繩', icon: 1, kind: 'w', rare: 2,
       lv: [{ n: 2, len: 150, spd: 3.2, dmg: 12 }, { n: 3, len: 155, spd: 3.4, dmg: 14 }, { n: 3, len: 175, spd: 3.8, dmg: 18 }, { n: 4, len: 185, spd: 4.1, dmg: 22 }, { n: 5, len: 205, spd: 4.5, dmg: 28 }],
       desc: ['甩跳繩，繩子繞著身體轉', '變 3 條', '更長、甩更快', '變 4 條', '5 條，又長又痛'] },
-    bomb: { name: '躲避球', icon: 2, kind: 'w',
+    bomb: { name: '躲避球', icon: 2, kind: 'w', rare: 2,
       lv: [{ cd: 2.6, n: 1, dmg: 36, r: 110 }, { cd: 2.3, n: 2, dmg: 40, r: 115 }, { cd: 2.1, n: 2, dmg: 50, r: 130 }, { cd: 1.9, n: 3, dmg: 58, r: 140 }, { cd: 1.6, n: 4, dmg: 70, r: 155 }],
       desc: ['往怪最多的地方砸躲避球', '一次丟 2 顆', '砸得更大更痛', '一次丟 3 顆', '一次 4 顆'] },
-    flash: { name: '體育哨子', icon: 3, kind: 'w',
+    flash: { name: '體育哨子', icon: 3, kind: 'w', rare: 1,
       lv: [{ cd: 4.2, r: 190, dmg: 18, stun: .6 }, { cd: 3.8, r: 210, dmg: 24, stun: .7 }, { cd: 3.4, r: 225, dmg: 30, stun: .8 }, { cd: 3, r: 240, dmg: 38, stun: .9 }, { cd: 2.5, r: 265, dmg: 48, stun: 1 }],
       desc: ['嗶！周圍的怪被嚇到定住', '範圍更大', '更痛、定更久', '吹得更勤', '超大聲'] },
-    beam: { name: '竹掃把', icon: 4, kind: 'w',
+    beam: { name: '竹掃把', icon: 4, kind: 'w', rare: 2,
       lv: [{ cd: 3.2, n: 1, len: 620, w: 34, dps: 110, dur: .6 }, { cd: 3, n: 2, len: 650, w: 36, dps: 120, dur: .65 }, { cd: 2.7, n: 2, len: 700, w: 42, dps: 150, dur: .7 }, { cd: 2.4, n: 3, len: 740, w: 44, dps: 170, dur: .75 }, { cd: 2, n: 4, len: 800, w: 50, dps: 210, dur: .8 }],
       desc: ['大掃除！掃把一揮掃過一整排', '一次 2 把', '掃把更大更痛', '一次 3 把', '一次 4 把'] },
-    buddy: { name: '扯鈴', icon: 5, kind: 'w',
-      lv: [{ n: 1, cd: 1.0, dmg: 14 }, { n: 2, cd: .95, dmg: 15 }, { n: 2, cd: .75, dmg: 20 }, { n: 3, cd: .7, dmg: 22 }, { n: 4, cd: .55, dmg: 26 }],
-      desc: ['扯鈴在身邊轉，飛出去撞怪再回來', '變 2 個', '飛得更快更痛', '變 3 個', '4 個一起飛'] },
-    thunder: { name: '紙飛機', icon: 6, kind: 'w',
+    buddy: { name: '扯鈴', icon: 5, kind: 'w', rare: 2,
+      lv: [{ cd: 3.2, dmg: 16, r: 85, spin: 1.4 }, { cd: 2.9, dmg: 20, r: 95, spin: 1.6 }, { cd: 2.6, dmg: 24, r: 110, spin: 1.8 }, { cd: 2.3, dmg: 30, r: 120, spin: 2.0 }, { cd: 2.0, dmg: 38, r: 140, spin: 2.4 }],
+      desc: ['把扯鈴拋到怪最多的地方，落地狂轉把怪捲進來', '轉更久更痛', '捲更大圈', '拋得更勤', '超大扯鈴龍捲風'] },
+    thunder: { name: '紙飛機', icon: 6, kind: 'w', rare: 3,
       lv: [{ cd: 3, n: 1, dmg: 48, r: 70 }, { cd: 2.7, n: 2, dmg: 52, r: 75 }, { cd: 2.4, n: 3, dmg: 62, r: 85 }, { cd: 2.1, n: 4, dmg: 72, r: 90 }, { cd: 1.7, n: 5, dmg: 90, r: 100 }],
       desc: ['紙飛機俯衝，隨機砸畫面裡的怪', '一次 2 架', '一次 3 架', '一次 4 架', '一次 5 架'] },
-    brew: { name: '拖地水桶', icon: 7, kind: 'w',
+    brew: { name: '拖地水桶', icon: 7, kind: 'w', rare: 1,
       lv: [{ cd: 1.6, dur: 3, r: 72, dps: 26, slow: .4 }, { cd: 1.5, dur: 3.6, r: 80, dps: 32, slow: .45 }, { cd: 1.4, dur: 4.2, r: 90, dps: 40, slow: .5 }, { cd: 1.3, dur: 4.8, r: 98, dps: 48, slow: .55 }, { cd: 1.1, dur: 5.5, r: 110, dps: 60, slow: .6 }],
       desc: ['走過的地方拖得濕濕的，怪會滑倒變慢', '水留更久', '拖更大片', '更滑', '整條走廊都濕了'] },
-    frost: { name: '電風扇', icon: 8, kind: 'w',
+    frost: { name: '電風扇', icon: 8, kind: 'w', rare: 1,
       lv: [{ r: 150, slow: .3, dps: 8 }, { r: 170, slow: .35, dps: 12 }, { r: 190, slow: .42, dps: 16 }, { r: 210, slow: .5, dps: 22 }, { r: 235, slow: .58, dps: 30 }],
       desc: ['身邊一直吹強風，靠近的怪走很慢', '範圍更大', '風更強', '更強更大', '開到最強段'] },
-    hero: { name: '針筒超人', icon: 'hero', kind: 'w',
+    hero: { name: '針筒超人', icon: 'hero', kind: 'w', rare: 2,
       lv: [{ dmg: 40, r: 95, spd: 520 }, { dmg: 52, r: 100, spd: 560 }, { dmg: 64, r: 112, spd: 600 }, { dmg: 78, r: 120, spd: 640 }, { dmg: 96, r: 135, spd: 700 }],
       desc: ['校長來幫忙！變身針筒超人打 20 秒，變回校長休息 20 秒，一直輪流', '撞得更痛', '撞更大片', '飛更快更痛', '最強針筒超人'] },
+    ball: { name: '籃球', icon: 100, kind: 'w', rare: 3,
+      lv: [{ cd: 2.2, bounce: 3, dmg: 34 }, { cd: 2.0, bounce: 4, dmg: 40 }, { cd: 1.8, bounce: 5, dmg: 48 }, { cd: 1.6, bounce: 6, dmg: 56 }, { cd: 1.4, bounce: 8, dmg: 66 }],
+      desc: ['籃球在怪跟怪之間彈來彈去，彈 3 次', '彈 4 次', '彈 5 次、更痛', '彈 6 次', '彈 8 次'] },
+    flute: { name: '直笛', icon: 101, kind: 'w', rare: 2,
+      lv: [{ cd: 2.0, len: 360, dmg: 28, both: false }, { cd: 1.8, len: 400, dmg: 34, both: false }, { cd: 1.7, len: 420, dmg: 40, both: true }, { cd: 1.5, len: 450, dmg: 48, both: true }, { cd: 1.2, len: 500, dmg: 60, both: true }],
+      desc: ['音樂課吹直笛，前面一整片音波把怪震退', '更遠更痛', '前後都吹得到', '吹得更勤', '整條走廊都是音波'] },
+    tack: { name: '圖釘', icon: 102, kind: 'w', rare: 1,
+      lv: [{ cd: 2.6, n: 3, dmg: 20, dur: 6 }, { cd: 2.4, n: 4, dmg: 24, dur: 6.5 }, { cd: 2.2, n: 5, dmg: 28, dur: 7 }, { cd: 2.0, n: 6, dmg: 34, dur: 7.5 }, { cd: 1.6, n: 8, dmg: 42, dur: 8 }],
+      desc: ['在地上撒圖釘，踩到的怪會痛', '撒 4 顆', '撒 5 顆、更痛', '撒 6 顆', '撒 8 顆'] },
+    eraser: { name: '板擦', icon: 103, kind: 'w', rare: 1,
+      lv: [{ cd: 3.0, r: 90, dps: 20, dur: 2.5 }, { cd: 2.7, r: 100, dps: 26, dur: 2.8 }, { cd: 2.4, r: 115, dps: 32, dur: 3 }, { cd: 2.1, r: 125, dps: 40, dur: 3.2 }, { cd: 1.8, r: 145, dps: 50, dur: 3.5 }],
+      desc: ['丟板擦拍出一大團粉筆灰，裡面的怪嗆到又變慢', '灰更多', '灰更大團', '丟得更勤', '整間教室都是粉筆灰'] },
+    hoop: { name: '呼拉圈', icon: 104, kind: 'w', rare: 3,
+      lv: [{ cd: 2.6, r: 230, dmg: 30 }, { cd: 2.4, r: 250, dmg: 38 }, { cd: 2.2, r: 270, dmg: 46 }, { cd: 2.0, r: 290, dmg: 56 }, { cd: 1.7, r: 320, dmg: 70 }],
+      desc: ['呼拉圈從腰上一圈圈擴散出去，把怪推開', '圈更大更痛', '轉得更勤', '更大更痛', '超大呼拉圈'] },
     cape: { name: '書包護盾', icon: 9, kind: 'p',
       lv: [{ n: 1, cd: 9 }, { n: 1, cd: 7 }, { n: 2, cd: 7 }, { n: 2, cd: 5.5 }, { n: 3, cd: 5 }],
       desc: ['擋掉 1 次攻擊，會自己充好', '充得更快', '可以擋 2 次', '充得更快', '可以擋 3 次'] },
@@ -62,6 +80,14 @@
       desc: ['所有武器快 8%', '快 15%', '快 21%', '快 27%', '快 34%'] },
   };
   const MAXLV = 5;
+  const MAXW = 5;   // 武器最多同時帶 5 種，第 6 種要丟掉一種或放棄
+  const RARE = { 1: { name: '普通', w: 1 }, 2: { name: '稀有', w: 0.6 }, 3: { name: '史詩', w: 0.35 } };
+
+  // 校長（針筒超人卡）的台詞：休息時偶爾講一句，變身、變回來各一句
+  const HERO_LINES = {
+    calm: ['小編，那個影片做好了嗎？', '那個影片做好了沒？', '小編，影片剪好了嗎？', '校長說幾句話就好…'],
+    tf: '變身！', back: '打針好痛😭',
+  };
 
   // 收集品（items 圖的格子編號）
   const ITEMS = {
@@ -82,12 +108,12 @@
       items: [['lantern', 2, 0.5], ['bucket', 1, 3.6], ['mic', 2, 3.5]], chests: [[1, 1.5]],
       start: [0, 1.5], exit: [0, 1.5], npc: 'tu',
       waves: { rate: 1.0, grow: 1.0, cap: 120, mix: [['pumpkin', 10, 0], ['bat', 3, 45]], horde: 50, hordeN: 16 } },
-    { name: '自然教室', sub: '床單鬼會穿牆', story: 'l2', wait: 40,
+    { name: '自然教室', sub: '床單鬼王守在撤離點', story: 'l2', wait: 20, boss: { k: 'ghostking', at: 'exit' },
       rooms: ['nurse lab hall class', 'lab hall class nurse', 'class nurse lab hall', 'hall lab hall class'],
       ladders: [[0, 3.5], [1, 0.5], [1, 2.5], [2, 3.5]],
       items: [['hat', 3, 0.5], ['bunting', 1, 3.5], ['bell', 2, 0.5]], chests: [[2, 2.5], [3, 3.5]],
       start: [0, 0.5], exit: [0, 0.5], npc: 'tu',
-      waves: { rate: 1.9, grow: 1.9, cap: 170, mix: [['pumpkin', 10, 0], ['bat', 4, 20], ['ghost', 3, 40]], horde: 42, hordeN: 28 } },
+      waves: { rate: 1.6, grow: 1.6, cap: 170, mix: [['pumpkin', 10, 0], ['bat', 4, 20], ['ghost', 3, 40]], horde: 42, hordeN: 28 } },
     { name: '圖書室與音樂教室', sub: '木乃伊很耐打', story: 'l3', wait: 45,
       rooms: ['library music hall library class', 'music hall library class music', 'hall class music hall library', 'class library hall music hall'],
       ladders: [[0, 0.5], [0, 4.5], [1, 2.5], [2, 0.5], [2, 4.5]],
@@ -100,7 +126,7 @@
       items: [['lolli', 1, 4.5], ['cookie', 3, 0.5], ['lights', 2, 2.5]], chests: [[1, 0.5], [3, 3.5], [4, 4.5]],
       start: [0, 2.5], exit: [4, 0.5], npc: 'zhang',
       waves: { rate: 2.7, grow: 2.5, cap: 210, mix: [['pumpkin', 10, 0], ['bat', 5, 0], ['ghost', 4, 20], ['mummy', 3, 45]], horde: 38, hordeN: 40 } },
-    { name: '頂樓萬聖晚會', sub: '南瓜大王出現了', story: 'l5', wait: 0, boss: true,
+    { name: '頂樓萬聖晚會', sub: '南瓜大王出現了', story: 'l5', wait: 0, boss: { k: 'boss', at: 'roof' },
       rooms: ['roof roof roof roof roof', 'class hall music library hall', 'lab class hall office class', 'hall library class nurse music', 'gym hall lab hall class'],
       ladders: [[0, 2.5], [1, 0.5], [1, 4.5], [2, 2.5], [3, 0.5], [3, 4.5]],
       items: [['banner', 3, 2.5], ['ears', 2, 0.5], ['trophy', 1, 4.5]], chests: [[1, 2.5], [2, 4.5], [3, 1.5]],
@@ -129,5 +155,5 @@
 
   const NAMES = { bian: '小編', tu: '兔兔老師', zhang: '校長' };
 
-  G.DATA = { ROOM, PLAYER, needXp, MONS, SKILLS, MAXLV, ITEMS, CHEST_ICON, LEVELS, STORY, NAMES };
+  G.DATA = { ROOM, PLAYER, needXp, MONS, SKILLS, MAXLV, MAXW, RARE, HERO_LINES, ITEMS, CHEST_ICON, LEVELS, STORY, NAMES };
 })(typeof window !== 'undefined' ? window : globalThis);

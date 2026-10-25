@@ -1,5 +1,5 @@
 // 2D 畫面：夜空、校舍剖面（教室、樓板、梯子）、怪物群、武器特效、傷害數字、指路箭頭；小編由 hero.js 的 3D 貼上來
-import * as HERO from './hero.js?v=3';
+import * as HERO from './hero.js?v=4';
 
 const CORE = window.CORE, D = window.DATA;
 const { W, H, T } = D.ROOM;
@@ -9,14 +9,14 @@ const nums = [], parts = [];
 let shake = 0, flashA = 0, redA = 0;
 
 export function loadImages(tick) {
-  const names = ['sky', 'items', 'skills', 'm-pumpkin', 'm-ghost', 'm-bat', 'm-mummy', 'm-boss',
+  const names = ['sky', 'items', 'skills', 'skills2', 'm-pumpkin', 'm-ghost', 'm-bat', 'm-mummy', 'm-boss', 'm-ghostboss',
     ...['class', 'lab', 'library', 'nurse', 'music', 'gym', 'office', 'hall', 'roof'].map((n) => 'room-' + n)];
   return Promise.all(names.map((n) => new Promise((res) => {
     const im = new Image(); im.onload = () => { IMG[n] = im; tick(); res(); }; im.onerror = () => { tick(); res(); };
-    im.src = `art/${n}.webp?v=3`;
+    im.src = `art/${n}.webp?v=4`;
   }))).then(() => {
     // 怪物的白色、藍色、橘色剪影（被打閃白、被冰變藍、被燙變橘）
-    for (const k of ['m-pumpkin', 'm-ghost', 'm-bat', 'm-mummy', 'm-boss']) {
+    for (const k of ['m-pumpkin', 'm-ghost', 'm-bat', 'm-mummy', 'm-boss', 'm-ghostboss']) {
       const im = IMG[k]; if (!im) continue;
       for (const [suf, col] of [['w', '#fff'], ['b', '#7fd0ff'], ['o', '#ffb347']]) {
         const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
@@ -26,7 +26,7 @@ export function loadImages(tick) {
     }
   });
 }
-export const LOAD_STEPS = 18;
+export const LOAD_STEPS = 20;
 export const img = (n) => IMG[n];
 
 export function init(canvas) { cv = canvas; ctx = cv.getContext('2d'); resize(); }
@@ -56,7 +56,7 @@ export function events(S, evs) {
     else if (e.k === 'item' || e.k === 'chest') sparkle(e.it ? e.it.x : e.c.x, (e.it ? e.it.y : e.c.y) - 50);
   }
 }
-const PCOL = { pumpkin: ['#f08a24', '#ffb347', '#5b8f2e'], bat: ['#5a3d6e', '#2d1f38', '#c43'], ghost: ['#f4f1ea', '#d9d4c8', '#fff'], mummy: ['#e9dfc6', '#c9bc9a', '#fff3c4'], boss: ['#f08a24', '#ffd34d', '#5b8f2e'] };
+const PCOL = { ghostking: ['#f4f1ea', '#c9b8e8', '#fff'], pumpkin: ['#f08a24', '#ffb347', '#5b8f2e'], bat: ['#5a3d6e', '#2d1f38', '#c43'], ghost: ['#f4f1ea', '#d9d4c8', '#fff'], mummy: ['#e9dfc6', '#c9bc9a', '#fff3c4'], boss: ['#f08a24', '#ffd34d', '#5b8f2e'] };
 function burst(x, y, k, r) {
   if (parts.length > 380) parts.splice(0, 40);
   const cols = PCOL[k] || PCOL.pumpkin, n = k === 'boss' ? 18 : 7;
@@ -97,7 +97,7 @@ export function draw(S, o) {
   rg.addColorStop(0, 'rgba(6,8,22,0)'); rg.addColorStop(1, 'rgba(6,8,22,0.55)');
   ctx.fillStyle = rg; ctx.fillRect(0, 0, cssW, cssH);
   ctx.setTransform(k, 0, 0, k, dpr * (cssW / 2 - S.cam.x * scale + sx), dpr * (cssH / 2 - S.cam.y * scale + sy));
-  drawBeams(S); drawGlow(S, t); drawHelper(S, t, o);
+  drawBeams(S); drawExtras(S, t); drawGlow(S, t); drawHelper(S, t, o);
   ctx.globalCompositeOperation = 'lighter';
   drawFx(S);
   ctx.globalCompositeOperation = 'source-over';
@@ -117,7 +117,7 @@ export function draw(S, o) {
     ctx.fillStyle = g; ctx.fillRect(0, 0, cssW, cssH);
   }
   if (o.joy) drawJoy(o.joy);
-  if (S.boss && !S.boss.dead) drawBossBar(S);
+  if (S.boss && !S.boss.dead) drawBossBar(S, o);
 }
 
 function drawSky(S) {
@@ -204,13 +204,16 @@ function ladder(x, yb, yt) {
   ctx.fillStyle = 'rgba(255,230,190,.25)'; ctx.fillRect(x - 26, yt, 2, yb - yt); ctx.fillRect(x + 19, yt, 2, yb - yt);
 }
 
+// 圖示：i 100 以上是第二張技能表 skills2
 function icon(sheet, i, x, y, size, rot = 0) {
+  if (i >= 100) { sheet = 'skills2'; i -= 100; }
   const im = IMG[sheet]; if (!im) return;
   const sx = (i % 4) * 128, sy = (i >> 2) * 128;
   if (rot) { ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.drawImage(im, sx, sy, 128, 128, -size / 2, -size / 2, size, size); ctx.restore(); }
   else ctx.drawImage(im, sx, sy, 128, 128, x - size / 2, y - size / 2, size, size);
 }
 export function drawIcon(g, sheet, i, x, y, size) {
+  if (i >= 100) { sheet = 'skills2'; i -= 100; }
   const im = IMG[sheet]; if (!im) return;
   g.drawImage(im, (i % 4) * 128, (i >> 2) * 128, 128, 128, x - size / 2, y - size / 2, size, size);
 }
@@ -327,8 +330,61 @@ function drawPlayer(S, t, o) {
     ctx.strokeStyle = 'rgba(235,245,255,.35)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
     for (let i = 0; i < 7; i++) { const a0 = t * 2.4 + i * 0.9, r = fr.r * (0.45 + ((t * 0.8 + i * 0.37) % 1) * 0.55); ctx.beginPath(); ctx.arc(p.x, CORE.pc(S), r, a0, a0 + 0.5); ctx.stroke(); }
   }
-  // 扯鈴：一邊轉一邊壓扁拉長（看起來在轉）
-  for (const b of S.buddies) { ctx.save(); ctx.translate(b.x, b.y); ctx.scale(0.75 + 0.25 * Math.cos(b.spin), 1); icon('skills', 5, 0, 0, 50); ctx.restore(); }
+  drawDiabolo(S, t);
+}
+// 扯鈴：小編兩手各拿一根棍子，中間一條線吊著扯鈴；拋出去時線拉長，落地狂轉
+function drawDiabolo(S, t) {
+  const d = S.dia; if (!d) return;
+  const p = S.p, cy = CORE.pc(S), f = p.face;
+  const lx = p.x - 26, rx = p.x + 26, sy = cy - 10;
+  ctx.lineCap = 'round';
+  // 兩根棍子（從手往上斜）
+  for (const [x, dx] of [[lx, -1], [rx, 1]]) { ctx.strokeStyle = '#3a2614'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(x, sy); ctx.lineTo(x + dx * 14, sy - 34); ctx.stroke(); ctx.strokeStyle = '#c98a4a'; ctx.lineWidth = 3; ctx.stroke(); }
+  const tl = [lx - 14, sy - 34], tr = [rx + 14, sy - 34];
+  // 線：手上時是 V 字吊著；拋出去時兩條線拉到扯鈴（飛遠了就只剩一條細線）
+  const far = d.st !== 'hold';
+  ctx.strokeStyle = far ? 'rgba(240,235,220,.55)' : '#f0ebdc'; ctx.lineWidth = far ? 1.5 : 2;
+  const dy = d.st === 'hold' ? d.y + 14 : d.y;
+  ctx.beginPath(); ctx.moveTo(tl[0], tl[1]); ctx.lineTo(d.x, dy); ctx.lineTo(tr[0], tr[1]); ctx.stroke();
+  // 扯鈴本體：兩個紅色碗口相對、中間黃色軸；轉的時候碗口的條紋左右跑
+  const sz = d.st === 'spin' ? 1.35 : 1, x = d.x, y = d.y;
+  ctx.save(); ctx.translate(x, y); ctx.scale(sz, sz);
+  if (d.st === 'spin') {   // 狂轉：地上一圈旋風
+    ctx.strokeStyle = 'rgba(255,230,180,.45)'; ctx.lineWidth = 3;
+    for (let i = 0; i < 3; i++) { const a0 = d.spin * 0.3 + i * 2.1; ctx.beginPath(); ctx.ellipse(0, 18, 60 + i * 18, 14 + i * 4, 0, a0, a0 + 2.2); ctx.stroke(); }
+  }
+  for (const s of [-1, 1]) {
+    ctx.fillStyle = '#c8322b'; ctx.strokeStyle = '#3a1410'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(s * 3, -4); ctx.lineTo(s * 20, -15); ctx.lineTo(s * 20, 15); ctx.lineTo(s * 3, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffd34d'; const k = Math.sin(d.spin + s) * 10; ctx.fillRect(s * 20 - 2, k - 2, 4, 4);   // 碗口上的亮點在轉
+    ctx.fillStyle = '#7a1d18'; ctx.beginPath(); ctx.ellipse(s * 20, 0, 3, 15, 0, 0, 6.29); ctx.fill();
+  }
+  ctx.fillStyle = '#ffd34d'; ctx.fillRect(-4, -4, 8, 8);
+  ctx.restore();
+  if (d.st !== 'hold') { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.arc(x, y, 28 + i * 6, d.spin * 0.5 + i, d.spin * 0.5 + i + 1); ctx.stroke(); } }
+}
+// 籃球、直笛音波、圖釘、粉筆灰、呼拉圈
+function drawExtras(S, t) {
+  const p = S.p, cx = p.x, cy = CORE.pc(S);
+  for (const tk of S.tacks) { const a = Math.min(1, (tk.dur - tk.t) * 2); ctx.globalAlpha = a; icon('skills2', 2, tk.x, tk.y - 8, 26, tk.rot); ctx.globalAlpha = 1; }
+  for (const cl of S.clouds) {
+    const a = Math.min(1, (cl.dur - cl.t) * 1.5, cl.t * 6);
+    for (let i = 0; i < 7; i++) { const an = i * 0.9 + cl.t * 0.6, rr = cl.r * (0.35 + 0.25 * Math.sin(i * 2.1 + cl.t)); ctx.fillStyle = `rgba(245,242,232,${0.22 * a})`; ctx.beginPath(); ctx.arc(cl.x + Math.cos(an) * cl.r * 0.45, cl.y + Math.sin(an) * cl.r * 0.3, rr, 0, 6.29); ctx.fill(); }
+  }
+  for (const rg of S.rings) {
+    const a = 1 - rg.t / rg.dur, cols = ['#e8443a', '#f2d46b', '#3fa0e0', '#7ee04a'];
+    ctx.lineWidth = 9; ctx.globalAlpha = 0.4 + 0.6 * a;
+    for (let i = 0; i < 8; i++) { ctx.strokeStyle = cols[i % 4]; ctx.beginPath(); ctx.ellipse(cx, cy, rg.r, rg.r * 0.55, 0, i * 0.785 + rg.t * 4, (i + 1) * 0.785 + rg.t * 4); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  }
+  for (const w of S.waves) {
+    const k = w.t / w.dur, a = 1 - k;
+    ctx.strokeStyle = `rgba(255,236,170,${a * 0.8})`; ctx.lineWidth = 5;
+    for (let i = 0; i < 3; i++) { const r = (k * w.len) - i * 50; if (r < 20) continue; ctx.beginPath(); ctx.ellipse(w.x, w.y, r, 60 + r * 0.15, 0, w.dir > 0 ? -0.6 : Math.PI - 0.6, w.dir > 0 ? 0.6 : Math.PI + 0.6); ctx.stroke(); }
+    ctx.fillStyle = `rgba(255,236,170,${a})`; ctx.font = '700 30px serif'; ctx.textAlign = 'center';
+    for (let i = 0; i < 3; i++) ctx.fillText(i % 2 ? '♫' : '♪', w.x + w.dir * (k * w.len * (0.4 + i * 0.25)), w.y - 30 + Math.sin(t * 8 + i) * 14 - i * 10);
+  }
+  for (const b of S.balls) { ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(b.x, b.y + 30, 14, 4, 0, 0, 6.29); ctx.fill(); icon('skills2', 0, b.x, b.y, 40, b.rot); }
 }
 // 校長（休息時跟在旁邊）／針筒超人（飛來飛去撞怪）
 function drawHelper(S, t, o) {
@@ -344,10 +400,19 @@ function drawHelper(S, t, o) {
     const y = h.y - 150, f = 1 - h.left / (h.left > 3 ? 20 : 2);
     ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.arc(h.x, y, 16, 0, 6.29); ctx.stroke();
     ctx.strokeStyle = '#ff5a4a'; ctx.beginPath(); ctx.arc(h.x, y, 16, -1.57, -1.57 + 6.283 * Math.max(0, Math.min(1, f))); ctx.stroke();
-    if (h.t < 2.5) bubble(h.x, h.y - 190, '校長說幾句話就好…');
+    // 剛變回來喊痛；之後偶爾問一句（每 7 秒抽一次、六成會講）
+    const L = D.HERO_LINES;
+    if (h.ouch && h.t < 2.2) bubble(h.x, h.y - 190, L.back);
+    else if (!h.ouch && h.t < 2) bubble(h.x, h.y - 190, '校長來幫忙了！');
+    else {
+      const slot = Math.floor(h.t / 7), seed = Math.sin(slot * 12.9 + h.x * 0.001) * 43758.5, r = seed - Math.floor(seed);
+      if (slot > 0 && r < 0.6 && h.t % 7 < 2.6) bubble(h.x, h.y - 190, L.calm[Math.floor(r / 0.6 * L.calm.length)]);
+    }
+  } else if (h.ph === 'back') {
+    bubble(h.x, h.y - 190, D.HERO_LINES.back);
   } else if (h.ph === 'tf') {
     ctx.globalCompositeOperation = 'lighter'; glowDisk(h.x, h.y - 60, 150 * Math.min(1, h.t * 2), `rgba(255,240,200,${0.8 - h.t * 0.6})`); ctx.globalCompositeOperation = 'source-over';
-    bubble(h.x, h.y - 190, '變身！');
+    bubble(h.x, h.y - 190, D.HERO_LINES.tf);
   } else if (flying && h.left < 3) bubble(h.x, h.y - 170, '快沒電了…');
 }
 function bubble(x, y, s) {
@@ -369,7 +434,7 @@ function drawShots(S, t) {
   }
   for (const b of S.bombs) {
     const k = Math.min(1, b.t / b.dur), x = b.x0 + (b.x - b.x0) * k, y = b.y0 + (b.y - b.y0) * k - Math.sin(k * Math.PI) * 160;
-    icon('skills', 2, x, y, 38, k * 8);
+    icon(b.type === 'eraser' ? 'skills2' : 'skills', b.type === 'eraser' ? 3 : 2, x, y, 38, k * 8);
   }
 }
 // 跳繩：從身體甩出去的繩子（中間微彎），尾端有木把手
@@ -467,7 +532,7 @@ function drawNums(dt) {
 
 // 指路：畫面外就在邊上畫箭頭＋名字；畫面裡就在目標頭上跳
 function target(S) {
-  if (S.boss && !S.boss.dead) return { x: S.boss.x, y: S.boss.y - 40, label: '南瓜大王', boss: true };
+  if (S.boss && !S.boss.dead) return { x: S.boss.x, y: S.boss.y - 40, label: S.boss.d.name, boss: true };
   if (!S.items.every((i) => i.got)) {
     const p = S.p, left = S.items.filter((i) => !i.got);
     left.sort((a, b) => (Math.abs(a.x - p.x) + Math.abs(a.f - p.f) * 900) - (Math.abs(b.x - p.x) + Math.abs(b.f - p.f) * 900));
@@ -513,10 +578,10 @@ function drawJoy(j) {
   ctx.beginPath(); ctx.arc(j.bx, j.by, 54, 0, 6.29); ctx.stroke();
   ctx.fillStyle = 'rgba(255,240,220,.28)'; ctx.beginPath(); ctx.arc(j.x, j.y, 26, 0, 6.29); ctx.fill();
 }
-function drawBossBar(S) {
-  const b = S.boss, w = Math.min(cssW - 60, 420), x = (cssW - w) / 2, y = cssH - 70;
+function drawBossBar(S, o) {
+  const b = S.boss, w = Math.min(cssW - 60, 420), x = (cssW - w) / 2, y = (o.hudBottom || 120) + 26;   // 放在上方資訊下面（下面是提示）
   ctx.fillStyle = 'rgba(10,8,6,.75)'; ctx.fillRect(x - 3, y - 3, w + 6, 18);
   ctx.fillStyle = '#ff7a2a'; ctx.fillRect(x, y, w * Math.max(0, b.hp / b.max), 12);
   ctx.font = '700 15px "LXGW WenKai TC", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  label(cssW / 2, y - 6, '南瓜大王', '#ffd34d');
+  label(cssW / 2, y - 6, b.d.name, '#ffd34d');
 }

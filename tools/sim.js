@@ -4,7 +4,7 @@ require('../js/data.js'); require('../js/core.js'); require('../js/bot.js');
 const { CORE, DATA, BOT: botInput } = globalThis;
 const SEEDS = +(process.env.SEEDS || 8);
 const only = process.argv[2] ? [+process.argv[2] - 1] : DATA.LEVELS.map((_, i) => i);
-const PREF = ['glow', 'hero', 'candy', 'bomb', 'thunder', 'flash', 'beam', 'buddy', 'brew', 'cape', 'bento', 'frost', 'shoe', 'magnet', 'clock'];
+const PREF = ['glow', 'hero', 'hoop', 'ball', 'candy', 'flute', 'bomb', 'thunder', 'flash', 'beam', 'buddy', 'brew', 'cape', 'bento', 'frost', 'shoe', 'magnet', 'clock'];
 
 function run(li, seed) {
   const S = CORE.create(li, { seed: seed * 7919 + 13 });
@@ -18,7 +18,8 @@ function run(li, seed) {
       let k = S.offer[0];
       if (process.env.PICK !== 'random') k = S.offer.slice().sort((a, b) => PREF.indexOf(a) - PREF.indexOf(b))[0];
       else k = S.offer[(S.rng() * S.offer.length) | 0];
-      picks.push(k); CORE.choose(S, k);
+      picks.push(k);
+      if (CORE.needDrop(S, k)) { const ws = CORE.weapons(S).sort((a, b) => S.sk[a] - S.sk[b]); CORE.choose(S, k, ws[0]); } else CORE.choose(S, k);
     }
     if (S.state === 'dead' || S.state === 'clear') break;
   }

@@ -1,6 +1,6 @@
 // 主程式：畫面切換、搖桿、遊戲迴圈、上方資訊、升級卡、劇情對話、存檔
-import * as HERO from './hero.js?v=3';
-import * as R from './render.js?v=3';
+import * as HERO from './hero.js?v=4';
+import * as R from './render.js?v=4';
 
 const CORE = window.CORE, D = window.DATA, SND = window.SND;
 const $ = (id) => document.getElementById(id);
@@ -122,7 +122,9 @@ function goSelect() {
   });
 }
 let HERO_ICON = '';   // 針筒超人的卡片圖示：載入後用 3D 模型拍一張
-const iconPos = (i) => i === 'hero' ? `background-image:url(${HERO_ICON});background-size:contain;background-position:center` : `background-position:${(i % 4) * 33.333}% ${(i >> 2) * 33.333}%`;
+const iconPos = (i) => i === 'hero' ? `background-image:url(${HERO_ICON});background-size:contain;background-position:center`
+  : i >= 100 ? `background-image:url(art/skills2.webp?v=4);background-position:${((i - 100) % 4) * 33.333}% ${((i - 100) >> 2) * 33.333}%`
+  : `background-position:${(i % 4) * 33.333}% ${(i >> 2) * 33.333}%`;
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 function fullscreen() {
@@ -232,7 +234,8 @@ function showCards() {
   mode = 'pick'; joy.id = null; joy.on = false; cardsAt = performance.now();
   show('hud', 'cards');
   const opening = S.t === 0;
-  $('cardsTitle').textContent = opening ? '出發前，挑一樣帶著' : S.lastChest ? '南瓜寶箱！挑一個' : `升到 Lv ${S.p.lv - S.pending}！選一個`;
+  const nw = CORE.weapons(S).length;
+  $('cardsTitle').innerHTML = (opening ? '出發前，挑一樣帶著' : S.lastChest ? '南瓜寶箱！挑一個' : `升到 Lv ${S.p.lv - S.pending}！選一個`) + `<small>武器 ${nw}/${D.MAXW}</small>`;
   S.lastChest = false;
   const row = $('cardRow'); row.innerHTML = '';
   if (BOT_ON) setTimeout(() => { cardsAt = 0; const b = $('cardRow').children[0]; b && b.click(); }, 400);
@@ -244,16 +247,44 @@ function showCards() {
     } else {
       const sk = D.SKILLS[k], lv = S.sk[k] || 0;
       const pips = Array.from({ length: D.MAXLV }, (_, j) => `<i class="${j < lv ? 'on' : j === lv ? 'nx' : ''}"></i>`).join('');
-      b.innerHTML = `${lv ? '' : '<span class="new">新</span>'}<span class="ic" style="${iconPos(sk.icon)}"></span><b>${sk.name}</b><span class="lvl">${pips}</span><p>${sk.desc[lv]}</p>`;
+      // 稀有度：武器標普通／稀有／史詩（卡片膠帶與外框顏色不同），被動標「道具」
+      const rare = sk.kind === 'w' ? sk.rare : 0;
+      b.classList.add('r' + rare);
+      const tag = rare ? `<span class="rare">${D.RARE[rare].name}</span>` : '<span class="rare">道具</span>';
+      const full = CORE.needDrop(S, k) ? '<span class="full">要換掉一種</span>' : '';
+      b.innerHTML = `${tag}${lv ? '' : '<span class="new">新</span>'}<span class="ic" style="${iconPos(sk.icon)}"></span><b>${sk.name}</b><span class="lvl">${pips}</span><p>${sk.desc[lv]}</p>${full}`;
     }
     b.onclick = () => {
       if (performance.now() - cardsAt < 350) return;   // 剛跳出來，避免手指還在拖搖桿誤點
-      CORE.choose(S, k); SND.play('pick');
-      if (S.pending > 0 || S.chestPick > 0) { CORE.step(S, 0); if (S.state === 'pick') { showCards(); return; } }
-      mode = 'play'; show('hud');
+      if (CORE.needDrop(S, k)) { showDrop(k); return; }
+      take(k);
     };
     row.appendChild(b);
   });
+}
+function take(k, dropK) {
+  CORE.choose(S, k, dropK); SND.play('pick');
+  if (S.pending > 0 || S.chestPick > 0) { CORE.step(S, 0); if (S.state === 'pick') { showCards(); return; } }
+  mode = 'play'; show('hud');
+}
+// 武器帶滿 5 種：挑一種丟掉，或放棄這張（補 20 血）
+function showDrop(k) {
+  const sk = D.SKILLS[k];
+  $('cardsTitle').innerHTML = `武器最多帶 ${D.MAXW} 種<small>丟掉一種換「${sk.name}」，或放棄</small>`;
+  const row = $('cardRow'); row.innerHTML = '';
+  const box = document.createElement('div'); box.className = 'drops';
+  for (const w of CORE.weapons(S)) {
+    const ws = D.SKILLS[w], b = document.createElement('button'); b.className = 'drop r' + ws.rare;
+    b.innerHTML = `<span class="ic" style="${iconPos(ws.icon)}"></span><b>${ws.name}</b><em>Lv ${S.sk[w]}</em><span class="x">丟掉</span>`;
+    b.onclick = () => { SND.play('tap'); take(k, w); };
+    box.appendChild(b);
+  }
+  const skip = document.createElement('button'); skip.className = 'drop skip';
+  skip.innerHTML = `<b>放棄「${sk.name}」</b><em>補 20 血</em>`;
+  skip.onclick = () => { SND.play('tap'); take('skip'); };
+  box.appendChild(skip);
+  row.appendChild(box);
+  if (BOT_ON) setTimeout(() => { const b = box.children[0]; b && b.click(); }, 300);
 }
 
 // ---------- 暫停、結算 ----------
@@ -340,10 +371,15 @@ function handleEvents() {
       case 'exit': {
         SND.play('exit'); SND.urgent(true);
         if (!S.L.boss) { const ex = S.exit, room = D.ROOM, name = roomName(S.rooms[ex.f][Math.floor(ex.x / room.W)]); tip(`三樣都拿齊了！回 ${ex.f + 1} 樓${name}找${D.NAMES[S.L.npc] || '老師'}`, 3.6, true); }
-        else tip('南瓜大王倒了！到頂樓的撤離點', 3.2, true);
+        else if (S.L.boss.at === 'exit') tip(`${D.MONS[S.L.boss.k].name}倒了！站在撤離點撐 ${S.exit.wait} 秒`, 3.2, true);
+        else tip(`${D.MONS[S.L.boss.k].name}倒了！到頂樓的撤離點`, 3.2, true);
         break;
       }
-      case 'boss': SND.play('boss'); SND.urgent(true); tip('頂樓的南瓜大王出現了！', 3.2, true); break;
+      case 'boss': SND.play('boss'); SND.urgent(true); tip(e.at === 'exit' ? `${e.name}守在撤離點！打倒牠才能走` : `頂樓的${e.name}出現了！`, 3.2, true); break;
+      case 'summon': SND.play('summon'); break;
+      case 'bounce': SND.play('bounce'); break;
+      case 'flute': SND.play('flute'); break;
+      case 'dust': SND.play('dust'); break;
       case 'bossDown': SND.play('boom'); break;
       case 'waitStart': tip(`站在房間裡等${S.L.npc === 'zhang' ? '校長' : '兔兔老師'}開門，撐住！`, 2.6, true); break;
       case 'heroIn': SND.play('poof'); if (!e.quiet && !S.heroSeen) { S.heroSeen = true; tip('校長來幫忙了！等一下會變身', 2.4); } break;
@@ -418,7 +454,7 @@ function frame(now) {
   for (const n of ns) HERO.update(n.k, dt, T, { speed: 0, face: n.face, front: true });
   const h = S.helper;
   if (h && !story) HERO.update(h.ph === 'fight' ? 'needle' : 'zhang', dt, T, { speed: h.ph === 'calm' ? h.moving / 120 : 0, face: h.face, front: h.ph !== 'calm' || h.moving < 5 });
-  R.draw(S, { t: T, dt, joy: mode === 'play' && joy.on ? toUi(joy) : null, npcs: vis, story: story || mode !== 'play' });
+  R.draw(S, { t: T, dt, hudBottom: $('hud').getBoundingClientRect().bottom, joy: mode === 'play' && joy.on ? toUi(joy) : null, npcs: vis, story: story || mode !== 'play' });
   if (S && !['title', 'select', 'loading', 'op', 'enter'].includes(mode)) hud();
   if (mode === 'play' && S.t - lastRunSave >= 5) saveRun();
 }
@@ -453,10 +489,10 @@ async function boot() {
 boot();
 
 // 測試用
-window.G = { get S() { return S; }, get mode() { return mode; }, start: startLevel,
+window.G = { get S() { return S; }, get mode() { return mode; }, start: startLevel, cards: (o) => { S.offer = o; S.state = "pick"; showCards(); },
   // 手動跑 sec 秒的畫面（預覽視窗藏起來時 requestAnimationFrame 不會跑）
   run(sec) { for (let i = 0; i < sec * 60; i++) frame(last + 1000 / 60); return mode; },
   // 量一格要畫多久（毫秒）
   prof(n = 20) { const a = performance.now(); for (let i = 0; i < n; i++) R.draw(S, { t: T, dt: 1 / 60, npcs: npcs() }); const b = performance.now(); for (let i = 0; i < n; i++) CORE.step(S, 1 / 60); S.ev.length = 0; return { draw: (b - a) / n, step: (performance.now() - b) / n }; },
   // 快轉 sec 秒（機器人玩、選第一張卡）
-  ff(sec) { const end = S.t + sec; while (S.t < end && (S.state === 'play' || S.state === 'pick')) { if (S.state === 'pick') { CORE.choose(S, S.offer[0]); continue; } S.input = window.BOT ? window.BOT(S) : { x: 0, y: 0 }; CORE.step(S, 1 / 60); handleEvents(); } mode = S.state === 'play' ? 'play' : mode; show('hud'); return { t: S.t, mons: S.mons.length, lv: S.p.lv, hp: S.p.hp }; }, give(k, n = 1) { for (let i = 0; i < n; i++) CORE.choose(S, k); }, win() { S.items.forEach((i) => (i.got = true)); S.exit.open = true; S.exit.left = 0.1; S.p.x = S.exit.x; S.p.f = S.exit.f; S.p.y = S.exit.y; } };
+  ff(sec) { const end = S.t + sec; while (S.t < end && (S.state === 'play' || S.state === 'pick')) { if (S.state === 'pick') { const k = S.offer[0]; CORE.choose(S, k, CORE.needDrop(S, k) ? CORE.weapons(S)[0] : undefined); continue; } S.input = window.BOT ? window.BOT(S) : { x: 0, y: 0 }; CORE.step(S, 1 / 60); handleEvents(); } mode = S.state === 'play' ? 'play' : mode; show('hud'); return { t: S.t, mons: S.mons.length, lv: S.p.lv, hp: S.p.hp }; }, give(k, n = 1) { for (let i = 0; i < n; i++) CORE.choose(S, k); }, win() { S.items.forEach((i) => (i.got = true)); S.exit.open = true; S.exit.left = 0.1; S.p.x = S.exit.x; S.p.f = S.exit.f; S.p.y = S.exit.y; } };

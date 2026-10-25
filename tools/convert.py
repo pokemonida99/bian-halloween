@@ -37,13 +37,13 @@ for n in ['class', 'lab', 'library', 'nurse', 'music', 'gym', 'office', 'hall', 
 if have('sky'):
     Image.open(f'{G}/sky.png').convert('RGB').resize((720, 1080), Image.LANCZOS).save(f'{A}/sky.webp', quality=80)
 
-for n in ['pumpkin', 'ghost', 'bat', 'mummy', 'boss']:
+for n in ['pumpkin', 'ghost', 'bat', 'mummy', 'boss', 'ghostboss']:
     if not have(f'm-{n}'): print('skip mon', n); continue
     img = crop(key_magenta(Image.open(f'{G}/m-{n}.png')))
-    fit(img, 400 if n == 'boss' else 200).save(f'{A}/m-{n}.webp', quality=88)
+    fit(img, 400 if n in ('boss', 'ghostboss') else 200).save(f'{A}/m-{n}.webp', quality=88)
 
 # 圖示表：4×4，每格切出來去背、置中放進 128 的格子
-for n in ['items', 'skills']:
+for n in ['items', 'skills', 'skills2']:
     if not have(n): continue
     src = key_magenta(Image.open(f'{G}/{n}.png'))
     cw, ch = src.width / 4, src.height / 4

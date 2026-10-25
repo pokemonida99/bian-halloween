@@ -27,7 +27,7 @@
       items: L.items.map(([k, f, c]) => ({ k, ...at([f, c]), got: false, prog: 0 })),
       chests: L.chests.map(([f, c]) => ({ ...at([f, c]), open: false })),
       exit: { ...at(L.exit), open: false, wait: L.wait, left: L.wait, inRoom: false },
-      mons: [], shots: [], bombs: [], pools: [], gems: [], fx: [], beams: [], bolts: [],
+      mons: [], shots: [], bombs: [], pools: [], gems: [], fx: [], beams: [], bolts: [], balls: [], tacks: [], clouds: [], rings: [], waves: [], dia: null,
       sk: { candy: 1 }, tm: {}, buddies: [], offer: null, pending: 0, chestPick: 0,
       spawnAcc: 0, hordeT: L.waves.horde, kills: 0, bossSpawned: false, boss: null, nid: 1,
     };
@@ -84,6 +84,15 @@
       const dx = m.x - x, dy = m.y - y, d = dx * dx + dy * dy;
       if (d < bd) { bd = d; best = m; }
     }
+    return best;
+  }
+
+  // 找附近怪最多的地方（隨機挑幾隻，看誰身邊最擠）
+  function cluster(S, x, y, range, r) {
+    const cand = []; for (const m of S.mons) if (!m.dead && Math.abs(m.x - x) < range && Math.abs(m.y - y) < range) cand.push(m);
+    if (!cand.length) return null;
+    let best = cand[0], bn = -1;
+    for (let j = 0; j < 6; j++) { const c = cand[(S.rng() * cand.length) | 0]; let n = 0; query(S, c.x, c.y, r, () => n++); if (n > bn) { bn = n; best = c; } }
     return best;
   }
 
@@ -153,7 +162,7 @@
     const p = S.p;
     if (S.state !== 'play') return;
     if (p.inv > 0) return;   // 被打到後短暫無敵：被圍住也是一下一下扣，不會瞬間死
-    p.inv = 0.4;
+    p.inv = 0.36;
     if (p.shield > 0) { p.shield--; p.shieldT = 0; S.ev.push({ k: 'block', x: p.x, y: pc(S) }); return; }
     p.hp -= dmg; p.hurtT = 0.25;
     S.ev.push({ k: 'hurt', x: p.x, y: pc(S), n: dmg });
@@ -163,7 +172,7 @@
   // ---------- 怪物 ----------
   function spawn(S, k, x, y, f) {
     const d = D.MONS[k];
-    const hpMul = 1 + S.t / 55 + S.li * 0.45;   // 越後面越耐打（武器也一直升級）
+    const hpMul = 1 + S.t / 75 + S.li * 0.32;   // 越後面越耐打（武器也一直升級）
     const m = { id: S.nid++, k, d, x, y, f, vy: 0, vx: 0, r: d.r, hp: d.hp * (d.boss ? 1 : hpMul), max: 0, spd: d.spd * (0.9 + S.rng() * 0.2),
       cl: null, conn: null, connT: 0, hitCd: 0, stun: 0, slow: 0, flash: 0, face: 1, ph: S.rng() * 6.28, dead: false, age: 0 };
     m.max = m.hp;
@@ -242,6 +251,10 @@
       if (m.cold > 0) m.cold -= dt;
       if (m.stun > 0) { m.stun -= dt; slow = 0; }
       const spd = m.spd * slow;
+      if (m.d.summon) {   // 魔王每 6 秒叫 3 隻小弟
+        m.sumT = (m.sumT ?? 3) - dt;
+        if (m.sumT <= 0 && S.mons.length < S.L.waves.cap) { m.sumT = 7; for (let i = 0; i < 3; i++) spawn(S, m.d.summon, m.x + (i - 1) * 60, m.y - 40, m.f); S.ev.push({ k: 'summon', x: m.x, y: m.y }); }
+      }
       if (m.d.fly) {
         // 會飛的：直接飛向小編（蝙蝠繞來繞去、床單鬼慢慢飄）
         const tx = p.x + Math.sin(m.age * 1.7 + m.ph) * (m.k === 'bat' ? 70 : 20), ty = cy + Math.cos(m.age * 2.3 + m.ph) * (m.k === 'bat' ? 50 : 14);
@@ -298,7 +311,7 @@
       }
       m.x = Math.max(m.r * 0.5, Math.min(S.Wt - m.r * 0.5, m.x));
       // 碰到小編
-      const dx = m.x - p.x, dy = m.y - cy, rr = m.r + D.PLAYER.r + 8;
+      const dx = m.x - p.x, dy = m.y - cy, rr = m.r + D.PLAYER.r + 14;   // 碰到的判定放寬一點
       if (m.hitCd <= 0 && m.stun <= 0 && dx * dx + dy * dy < rr * rr) { m.hitCd = 0.9; hurtPlayer(S, m.d.dmg, m); }
     }
     // 互推：疊起來的怪往上擠（重力再把牠們拉回來，就會疊成一坨一坨）
@@ -338,7 +351,7 @@
     const fy = m.d.fly ? floorY(Math.max(0, Math.min(S.F - 1, Math.floor(-(m.y - 20) / FH)))) : floorY(m.f);
     const n = m.d.xp;
     for (let i = 0; i < Math.min(n, 8); i++) S.gems.push({ x: m.x + (S.rng() - 0.5) * m.r, y: m.y, vy: -200 - S.rng() * 150, vx: (S.rng() - 0.5) * 120, fy, v: n > 8 && i === 0 ? n - 7 : 1, pull: false, big: m.d.boss });
-    if (S.rng() < 0.006) S.gems.push({ x: m.x, y: m.y, vy: -250, vx: 0, fy, heart: true, pull: false });
+    if (S.rng() < 0.009) S.gems.push({ x: m.x, y: m.y, vy: -250, vx: 0, fy, heart: true, pull: false });
     if (m.d.boss) { S.boss = null; S.ev.push({ k: 'bossDown', x: m.x, y: m.y }); openExit(S); }
   }
 
@@ -416,27 +429,99 @@
       for (let s = 30; s <= b.len; s += b.w) query(S, cx + ca * s, cy + sa * s, b.w / 2, (m) => { if (!seen.has(m)) { seen.add(m); hurt(S, m, b.dps * dt, 'beam', true); m.burn = 0.15; } });
     }
     S.beams = S.beams.filter((b) => b.t < b.dur);
-    // 扯鈴：在身邊轉，時間到就飛出去撞最近的怪（撞到一小片），再飛回來
+    // 扯鈴：小編在手上拉著轉，冷卻好就拋到怪最多的地方，落地狂轉把旁邊的怪捲進來，再拉回手上
     if ((v = sv(S, 'buddy'))) {
-      while (S.buddies.length < v.n) S.buddies.push({ x: cx, y: cy, a: S.buddies.length * 2.1, cd: 0.3 * S.buddies.length, st: 'orbit', spin: 0 });
-      S.buddies.forEach((b, i) => {
-        b.a += dt * 1.6; b.spin += dt * 20;
-        const ox = cx + Math.cos(b.a + i * Math.PI * 2 / v.n) * 95, oy = cy - 30 + Math.sin(b.a * 1.3 + i) * 40;
-        if (b.st === 'orbit') {
-          b.x += (ox - b.x) * Math.min(1, dt * 6); b.y += (oy - b.y) * Math.min(1, dt * 6);
-          b.cd -= dt;
-          if (b.cd <= 0) { const tg = nearest(S, b.x, b.y, 480); if (tg) { b.st = 'out'; b.tx = tg.x; b.ty = tg.y; } else b.cd = 0.3; }
-        } else {
-          const tx = b.st === 'out' ? b.tx : ox, ty = b.st === 'out' ? b.ty : oy;
-          const dx = tx - b.x, dy = ty - b.y, d = Math.hypot(dx, dy) || 1, step = 1100 * dt;
-          if (d <= step) {
-            b.x = tx; b.y = ty;
-            if (b.st === 'out') { query(S, b.x, b.y, 50, (m) => hurt(S, m, v.dmg, 'buddy')); S.fx.push({ k: 'pop', x: b.x, y: b.y, r: 50, t: 0, dur: 0.25 }); b.st = 'back'; }
-            else { b.st = 'orbit'; b.cd = v.cd * cdMul(S); }
-          } else { b.x += dx / d * step; b.y += dy / d * step; }
+      const hx = cx + p.face * 18, hy = cy - 4;
+      let d = S.dia || (S.dia = { st: 'hold', x: hx, y: hy, t: 0, cd: 0.6, spin: 0 });
+      d.spin += dt * (d.st === 'spin' ? 40 : 18); d.t += dt;
+      if (d.st === 'hold') {
+        d.x = hx; d.y = hy + Math.sin(S.t * 6) * 6;
+        d.cd -= dt;
+        if (d.cd <= 0) {
+          const c = cluster(S, cx, cy, 480, v.r);
+          if (c) { d.st = 'out'; d.t = 0; d.x0 = d.x; d.y0 = d.y; d.tx = c.x; d.ty = c.d.fly ? c.y : floorY(c.f) - 26; } else d.cd = 0.4;
         }
+      } else if (d.st === 'out') {
+        const k = Math.min(1, d.t / 0.45);
+        d.x = d.x0 + (d.tx - d.x0) * k; d.y = d.y0 + (d.ty - d.y0) * k - Math.sin(k * Math.PI) * 140;
+        if (k >= 1) { d.st = 'spin'; d.t = 0; d.hitT = 0; }
+      } else if (d.st === 'spin') {
+        d.hitT -= dt;
+        if (d.hitT <= 0) {
+          d.hitT = 0.2;
+          query(S, d.x, d.y, v.r, (m) => { hurt(S, m, v.dmg, 'buddy'); if (!m.d.boss) { m.x += (d.x - m.x) * 0.18; if (m.d.fly) m.y += (d.y - m.y) * 0.18; } });
+        }
+        if (d.t >= v.spin) { d.st = 'back'; d.t = 0; d.x0 = d.x; d.y0 = d.y; }
+      } else {
+        const k = Math.min(1, d.t / 0.35);
+        d.x = d.x0 + (hx - d.x0) * k; d.y = d.y0 + (hy - d.y0) * k - Math.sin(k * Math.PI) * 60;
+        if (k >= 1) { d.st = 'hold'; d.cd = v.cd * cdMul(S); }
+      }
+    } else S.dia = null;
+    // 籃球：在怪跟怪之間彈來彈去
+    if ((v = sv(S, 'ball')) && timer(S, 'ball', v.cd, dt)) {
+      const tg = nearest(S, cx, cy, 520);
+      if (tg) S.balls.push({ x: cx, y: cy - 20, tg, left: v.bounce, dmg: v.dmg, hit: new Set(), rot: 0, life: 4 });
+    }
+    for (const b of S.balls) {
+      b.life -= dt; b.rot += dt * 10;
+      if (!b.tg || b.tg.dead) { b.tg = nearest(S, b.x, b.y, 360, (m) => !b.hit.has(m.id)); if (!b.tg) { b.life = Math.min(b.life, 0.3); b.y += 400 * dt; continue; } }
+      const dx = b.tg.x - b.x, dy = b.tg.y - b.y, dd = Math.hypot(dx, dy) || 1, step = 950 * dt;
+      if (dd <= step + b.tg.r) {
+        hurt(S, b.tg, b.dmg, 'ball'); b.hit.add(b.tg.id); S.ev.push({ k: 'bounce' });
+        b.x = b.tg.x; b.y = b.tg.y;
+        if (--b.left <= 0) { b.life = 0; S.fx.push({ k: 'pop', x: b.x, y: b.y, r: 40, t: 0, dur: 0.25 }); }
+        else b.tg = nearest(S, b.x, b.y, 360, (m) => !b.hit.has(m.id));
+      } else { b.x += dx / dd * step; b.y += dy / dd * step - Math.sin(b.life * 9) * 2; }
+    }
+    S.balls = S.balls.filter((b) => b.life > 0);
+    // 直笛：前面（升級後前後）一整片音波，把怪震退
+    if ((v = sv(S, 'flute')) && timer(S, 'flute', v.cd, dt)) {
+      for (const dir of v.both ? [p.face, -p.face] : [p.face]) {
+        for (const m of S.mons) {
+          if (m.dead) continue;
+          const dx = (m.x - cx) * dir;
+          if (dx > -10 && dx < v.len && Math.abs(m.y - cy) < 80 + dx * 0.15) { hurt(S, m, v.dmg, 'flute'); if (!m.d.boss) { m.x += dir * 45; m.stun = Math.max(m.stun, 0.2); } }
+        }
+        S.waves.push({ x: cx, y: cy, dir, len: v.len, t: 0, dur: 0.5 });
+      }
+      S.ev.push({ k: 'flute' });
+    }
+    S.waves.forEach((w) => (w.t += dt)); S.waves = S.waves.filter((w) => w.t < w.dur);
+    // 圖釘：撒在地上，踩到的地上怪每 0.5 秒痛一下
+    if ((v = sv(S, 'tack')) && timer(S, 'tack', v.cd, dt)) {
+      for (let i = 0; i < v.n; i++) S.tacks.push({ x: Math.max(20, Math.min(S.Wt - 20, p.x + (S.rng() - 0.5) * 260)), y: floorY(p.f), f: p.f, t: 0, dur: v.dur, dmg: v.dmg, cd: 0, rot: S.rng() * 6 });
+      if (S.tacks.length > 60) S.tacks.splice(0, S.tacks.length - 60);
+    }
+    for (const tk of S.tacks) {
+      tk.t += dt; tk.cd -= dt;
+      if (tk.cd > 0) continue;
+      let hit = false;
+      query(S, tk.x, tk.y - 20, 18, (m) => { if (!m.d.fly && !m.cl && m.f === tk.f) { hurt(S, m, tk.dmg, 'tack'); hit = true; } });
+      if (hit) tk.cd = 0.5;
+    }
+    S.tacks = S.tacks.filter((tk) => tk.t < tk.dur);
+    // 板擦：丟出去拍出一團粉筆灰
+    if ((v = sv(S, 'eraser')) && timer(S, 'eraser', v.cd, dt)) {
+      const c = cluster(S, cx, cy, 480, v.r);
+      if (c) S.bombs.push({ type: 'eraser', x0: cx, y0: cy - 20, x: c.x, y: c.y, t: 0, dur: 0.45, r: v.r, dps: v.dps, cdur: v.dur });
+    }
+    for (const cl of S.clouds) {
+      cl.t += dt;
+      query(S, cl.x, cl.y, cl.r, (m) => { hurt(S, m, cl.dps * dt, 'eraser', true); m.slow = Math.max(m.slow, 0.2); m.dusty = 0.2; });
+    }
+    S.clouds = S.clouds.filter((cl) => cl.t < cl.dur);
+    // 呼拉圈：一圈從腰上擴散出去，碰到的怪被推開
+    if ((v = sv(S, 'hoop')) && timer(S, 'hoop', v.cd, dt)) S.rings.push({ r: 40, max: v.r, t: 0, dur: 0.7, dmg: v.dmg, hit: new Set() });
+    for (const rg of S.rings) {
+      rg.t += dt; rg.r = 40 + (rg.max - 40) * Math.min(1, rg.t / rg.dur);
+      query(S, cx, cy, rg.r + 20, (m) => {
+        if (rg.hit.has(m.id)) return;
+        const dd = Math.hypot(m.x - cx, m.y - cy);
+        if (dd > rg.r - 30) { rg.hit.add(m.id); hurt(S, m, rg.dmg, 'hoop'); if (!m.d.boss) m.x += Math.sign(m.x - cx || 1) * 50; }
       });
     }
+    S.rings = S.rings.filter((rg) => rg.t < rg.dur);
     // 打雷：隨機劈畫面裡的怪
     if ((v = sv(S, 'thunder')) && timer(S, 'thunder', v.cd, dt)) {
       const vis = S.mons.filter((m) => !m.dead && onScreen(S, m.x, m.y, -30));
@@ -473,6 +558,7 @@
       b.t += dt;
       if (b.t >= b.dur && !b.done) {
         b.done = true;
+        if (b.type === 'eraser') { S.clouds.push({ x: b.x, y: b.y, r: b.r, t: 0, dur: b.cdur, dps: b.dps }); S.ev.push({ k: 'dust' }); continue; }
         query(S, b.x, b.y, b.r, (m) => { hurt(S, m, b.dmg, 'bomb'); m.vy = -300; });
         S.fx.push({ k: 'boom', x: b.x, y: b.y, r: b.r, t: 0, dur: 0.5 });
         S.ev.push({ k: 'boom', x: b.x, y: b.y });
@@ -521,7 +607,7 @@
       h.hitT -= dt;
       if (h.hitT <= 0) { h.hitT = 0.25; query(S, h.x, h.y - 55, v.r, (m) => { hurt(S, m, v.dmg, 'hero'); m.x += Math.sign(m.x - h.x) * 14; }); }
       if (h.left <= 0) {   // 變回校長：落在小編旁邊
-        h.ph = 'back'; h.t = 0; h.f = pf; h.x = Math.max(30, Math.min(S.Wt - 30, p.x - p.face * 90)); h.y = floorY(h.f);
+        h.ph = 'back'; h.t = 0; h.ouch = true; h.f = pf; h.x = Math.max(30, Math.min(S.Wt - 30, p.x - p.face * 90)); h.y = floorY(h.f);
         S.ev.push({ k: 'heroBack', x: h.x, y: h.y - 60 });
       }
     } else if (h.ph === 'back') {
@@ -547,9 +633,8 @@
         // 掉出來彈一下，然後自己飛向小編
         g.vy += 1400 * dt; g.x += g.vx * dt; g.y += g.vy * dt; g.vx *= 0.96;
         if (g.y > g.fy - 8) { g.y = g.fy - 8; g.vy = 0; g.vx = 0; }
-        g.delay = (g.delay ?? 0.45) - dt;
         const dx = cx - g.x, dy = cy - g.y;
-        if (g.delay <= 0 || dx * dx + dy * dy < mag * mag) g.pull = true;
+        if (dx * dx + dy * dy < mag * mag) g.pull = true;   // 走到附近才吸得到
       }
     }
     S.gems = S.gems.filter((g) => !g.got);
@@ -581,12 +666,16 @@
     }
   }
   function allItems(S) {
-    if (S.L.boss) {
-      // 最後一關：南瓜大王出現，打倒才能撤離
-      const f = S.F - 1, x = S.p.f === f ? (S.p.x < S.Wt / 2 ? S.Wt - 120 : 120) : S.Wt / 2;
-      S.boss = spawn(S, 'boss', x, floorY(f) - D.MONS.boss.r, f);
-      S.ev.push({ k: 'boss' });
-      horde(S, 30, 'boss');
+    const B = S.L.boss;
+    if (B) {
+      // 魔王：頂樓（南瓜大王）或守在撤離點（床單鬼王），打倒才能撤離
+      const d = D.MONS[B.k];
+      let f, x, y;
+      if (B.at === 'exit') { f = S.exit.f; x = S.exit.x; y = floorY(f) - 170; }
+      else { f = S.F - 1; x = S.p.f === f ? (S.p.x < S.Wt / 2 ? S.Wt - 120 : 120) : S.Wt / 2; y = floorY(f) - d.r; }
+      S.boss = spawn(S, B.k, x, y, f);
+      S.ev.push({ k: 'boss', name: d.name, at: B.at });
+      horde(S, B.at === 'exit' ? 12 : 30, 'boss');
     } else {
       openExit(S);
       horde(S, S.L.waves.hordeN + 10, 'last');
@@ -601,9 +690,19 @@
   }
 
   // ---------- 升級三選一 ----------
+  // 稀有度越高越少出現；武器帶滿 5 種時新武器還是會出現，但要丟掉一種才能拿（或放棄）
+  const weapons = (S) => Object.keys(S.sk).filter((k) => D.SKILLS[k].kind === 'w');
+  const isFull = (S) => weapons(S).length >= D.MAXW;
   function makeOffer(S) {
     const keys = Object.keys(D.SKILLS).filter((k) => (S.sk[k] || 0) < D.MAXLV);
-    const pool = keys.map((k) => ({ k, w: (S.sk[k] ? 1.6 : 1) * (D.SKILLS[k].kind === 'w' ? 1.15 : 0.85) * (k === 'bento' && S.p.hp < S.p.max * 0.5 ? 2.5 : 1) }));
+    const full = isFull(S);
+    const pool = keys.map((k) => {
+      const sk = D.SKILLS[k], own = !!S.sk[k];
+      let w = (own ? 1.6 : 1) * (sk.kind === 'w' ? 1.15 : 0.85) * (sk.rare ? D.RARE[sk.rare].w : 1);
+      if (k === 'bento' && S.p.hp < S.p.max * 0.5) w *= 2.5;
+      if (full && sk.kind === 'w' && !own) w *= 0.45;   // 帶滿了：新武器少出現一點
+      return { k, w };
+    });
     const out = [];
     while (out.length < 3 && pool.length) {
       let tot = 0; for (const e of pool) tot += e.w;
@@ -614,15 +713,29 @@
     if (!out.length) out.push('heal');
     return out;
   }
-  function choose(S, k) {
+  // 拿這張卡要不要先丟一種武器
+  const needDrop = (S, k) => k !== 'heal' && k !== 'skip' && D.SKILLS[k].kind === 'w' && !S.sk[k] && isFull(S);
+  // 丟掉一種武器（連它的狀態一起清掉）
+  function drop(S, k) {
+    delete S.sk[k]; delete S.tm[k];
+    if (k === 'buddy') S.dia = null;
+    if (k === 'hero') S.helper = null;
+    if (k === 'glow') S.glowHit = null;
+    if (k === 'ball') S.balls = [];
+    S.ev.push({ k: 'drop', s: k });
+  }
+  function choose(S, k, dropK) {
     if (k === 'heal') S.p.hp = S.p.max;
+    else if (k === 'skip') S.p.hp = Math.min(S.p.max, S.p.hp + 20);   // 放棄：補一點血
     else {
+      if (needDrop(S, k)) { if (!dropK || !S.sk[dropK]) return false; drop(S, dropK); }
       S.sk[k] = (S.sk[k] || 0) + 1;
-      if (k === 'bento') { const add = k === 'bento' ? (S.sk[k] === 5 ? 30 : 25) : 0; S.p.max += add; S.p.hp = S.p.max; }
+      if (k === 'bento') { const add = S.sk[k] === 5 ? 30 : 25; S.p.max += add; S.p.hp = S.p.max; }
       if (k === 'cape') S.p.shield = sv(S, 'cape').n;
     }
     S.offer = null; S.state = 'play';
     S.ev.push({ k: 'pick', s: k });
+    return true;
   }
 
   // ---------- 一格 ----------
@@ -667,11 +780,11 @@
     Object.assign(S.exit, o.exit);
     S.mons = o.mons.map((m) => ({ ...m, d: D.MONS[m.k], r: D.MONS[m.k].r, conn: null, connT: 0, hitCd: 0.5, flash: 0, dead: false }));
     S.boss = o.boss != null ? S.mons.find((m) => m.id === o.boss) || null : null;
-    S.gems = o.gems.map((g) => ({ ...g, vy: 0, vx: 0, pull: false, delay: 0.2 }));
+    S.gems = o.gems.map((g) => ({ ...g, vy: 0, vx: 0, pull: false }));
     S.pools = o.pools; S.buddies = o.buddies; S.helper = o.helper;
     updCam(S, 1);
     return S;
   }
 
-  G.CORE = { create, step, choose, serialize, restore, floorY, pc, pFloor, sv, onScreen, updCam, ROOM: D.ROOM };
+  G.CORE = { create, step, choose, needDrop, weapons, serialize, restore, floorY, pc, pFloor, sv, onScreen, updCam, ROOM: D.ROOM };
 })(typeof window !== 'undefined' ? window : globalThis);
