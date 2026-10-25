@@ -1,5 +1,5 @@
 // 2D 畫面：夜空、校舍剖面（教室、樓板、梯子）、怪物群、武器特效、傷害數字、指路箭頭；小編由 hero.js 的 3D 貼上來
-import * as HERO from './hero.js?v=1';
+import * as HERO from './hero.js?v=2';
 
 const CORE = window.CORE, D = window.DATA;
 const { W, H, T } = D.ROOM;
@@ -13,7 +13,7 @@ export function loadImages(tick) {
     ...['class', 'lab', 'library', 'nurse', 'music', 'gym', 'office', 'hall', 'roof'].map((n) => 'room-' + n)];
   return Promise.all(names.map((n) => new Promise((res) => {
     const im = new Image(); im.onload = () => { IMG[n] = im; tick(); res(); }; im.onerror = () => { tick(); res(); };
-    im.src = `art/${n}.webp?v=1`;
+    im.src = `art/${n}.webp?v=2`;
   }))).then(() => {
     // 怪物的白色、藍色、橘色剪影（被打閃白、被冰變藍、被燙變橘）
     for (const k of ['m-pumpkin', 'm-ghost', 'm-bat', 'm-mummy', 'm-boss']) {
@@ -97,9 +97,11 @@ export function draw(S, o) {
   rg.addColorStop(0, 'rgba(6,8,22,0)'); rg.addColorStop(1, 'rgba(6,8,22,0.55)');
   ctx.fillStyle = rg; ctx.fillRect(0, 0, cssW, cssH);
   ctx.setTransform(k, 0, 0, k, dpr * (cssW / 2 - S.cam.x * scale + sx), dpr * (cssH / 2 - S.cam.y * scale + sy));
+  drawBeams(S); drawGlow(S, t); drawHelper(S, t, o);
   ctx.globalCompositeOperation = 'lighter';
-  drawGlow(S, t); drawBeams(S); drawBolts(S, t); drawFx(S);
+  drawFx(S);
   ctx.globalCompositeOperation = 'source-over';
+  drawBolts(S, t);
   drawParts(dt);
   drawNums(dt);
   if (!o.story) drawHpBar(S);
@@ -266,9 +268,9 @@ function drawPools(S, t) {
   for (const p of S.pools) {
     const a = Math.min(1, (p.dur - p.t) * 2, p.t * 6);
     ctx.globalAlpha = 0.75 * a;
-    ctx.fillStyle = '#5fbf2c'; ctx.beginPath(); ctx.ellipse(p.x, p.y - 4, p.r, p.r * 0.22, 0, 0, 6.29); ctx.fill();
-    ctx.fillStyle = '#9cf04a';
-    for (let i = 0; i < 4; i++) { const bx = p.x + Math.sin(i * 2.3 + p.x) * p.r * 0.6, by = p.y - 8 - ((t * 30 + i * 13) % 26); ctx.beginPath(); ctx.arc(bx, by, 4, 0, 6.29); ctx.fill(); }
+    ctx.fillStyle = 'rgba(120,190,235,.75)'; ctx.beginPath(); ctx.ellipse(p.x, p.y - 4, p.r, p.r * 0.2, 0, 0, 6.29); ctx.fill();
+    ctx.fillStyle = 'rgba(235,250,255,.8)';
+    for (let i = 0; i < 3; i++) { const bx = p.x + Math.sin(i * 2.3 + p.x) * p.r * 0.55, sh = 0.5 + 0.5 * Math.sin(t * 3 + i * 2); ctx.globalAlpha = 0.75 * a * sh; ctx.beginPath(); ctx.ellipse(bx, p.y - 6, 14, 3, 0, 0, 6.29); ctx.fill(); }
     ctx.globalAlpha = 1;
   }
 }
@@ -314,21 +316,51 @@ function drawPlayer(S, t, o) {
   if (o.heroHidden) return;
   // 披風護盾：一圈紫光
   if (p.shield > 0) {
-    ctx.strokeStyle = `rgba(190,140,255,${0.45 + 0.15 * Math.sin(t * 5)})`; ctx.lineWidth = 4;
+    ctx.strokeStyle = `rgba(255,120,90,${0.45 + 0.15 * Math.sin(t * 5)})`; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.ellipse(p.x, p.y - 56, 52, 66, 0, 0, 6.29); ctx.stroke();
   }
   ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(p.x, p.y - 2, 30, 7, 0, 0, 6.29); ctx.fill();
   HERO.draw(ctx, 'bian', p.x, p.y + 2, D.PLAYER.h, { red: p.hurtT > 0 ? 0.38 : 0 });
   // 冰棒寒氣
   const fr = CORE.sv(S, 'frost');
-  if (fr) { ctx.strokeStyle = 'rgba(150,220,255,.22)'; ctx.lineWidth = 3; ctx.setLineDash([10, 14]); ctx.lineDashOffset = -t * 30; ctx.beginPath(); ctx.arc(p.x, CORE.pc(S), fr.r, 0, 6.29); ctx.stroke(); ctx.setLineDash([]); }
-  for (const b of S.buddies) icon('skills', 5, b.x, b.y + Math.sin(t * 4 + b.a) * 4, 46);
+  if (fr) {   // 電風扇：一圈一圈往外吹的風線
+    ctx.strokeStyle = 'rgba(235,245,255,.35)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    for (let i = 0; i < 7; i++) { const a0 = t * 2.4 + i * 0.9, r = fr.r * (0.45 + ((t * 0.8 + i * 0.37) % 1) * 0.55); ctx.beginPath(); ctx.arc(p.x, CORE.pc(S), r, a0, a0 + 0.5); ctx.stroke(); }
+  }
+  // 扯鈴：一邊轉一邊壓扁拉長（看起來在轉）
+  for (const b of S.buddies) { ctx.save(); ctx.translate(b.x, b.y); ctx.scale(0.75 + 0.25 * Math.cos(b.spin), 1); icon('skills', 5, 0, 0, 50); ctx.restore(); }
+}
+// 校長（休息時跟在旁邊）／針筒超人（飛來飛去撞怪）
+function drawHelper(S, t, o) {
+  const h = S.helper; if (!h || o.story) return;
+  const flying = h.ph === 'fight';
+  const k = flying ? 'needle' : 'zhang';
+  if (!flying) { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(h.x, h.y - 2, 28, 6, 0, 0, 6.29); ctx.fill(); }
+  const white = h.ph === 'tf' ? Math.min(1, h.t * 2) : h.ph === 'back' ? 1 - h.t / 0.6 : 0;
+  HERO.draw(ctx, k, h.x, h.y + (flying ? Math.sin(t * 4) * 6 : 2), 120, { white: white > 0 ? white * 0.9 : 0 });
+  ctx.font = '700 22px "LXGW WenKai TC", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (h.ph === 'calm') {
+    // 頭上的變身倒數（圈圈）
+    const y = h.y - 150, f = 1 - h.left / (h.left > 3 ? 20 : 2);
+    ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.arc(h.x, y, 16, 0, 6.29); ctx.stroke();
+    ctx.strokeStyle = '#ff5a4a'; ctx.beginPath(); ctx.arc(h.x, y, 16, -1.57, -1.57 + 6.283 * Math.max(0, Math.min(1, f))); ctx.stroke();
+    if (h.t < 2.5) bubble(h.x, h.y - 190, '校長說幾句話就好…');
+  } else if (h.ph === 'tf') {
+    ctx.globalCompositeOperation = 'lighter'; glowDisk(h.x, h.y - 60, 150 * Math.min(1, h.t * 2), `rgba(255,240,200,${0.8 - h.t * 0.6})`); ctx.globalCompositeOperation = 'source-over';
+    bubble(h.x, h.y - 190, '變身！');
+  } else if (flying && h.left < 3) bubble(h.x, h.y - 170, '快沒電了…');
+}
+function bubble(x, y, s) {
+  const w = ctx.measureText(s).width + 26;
+  ctx.fillStyle = 'rgba(250,246,236,.95)'; ctx.strokeStyle = '#3a3530'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.rect(x - w / 2, y - 20, w, 40); ctx.moveTo(x - 8, y + 20); ctx.lineTo(x, y + 32); ctx.lineTo(x + 8, y + 20); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#3a3530'; ctx.fillText(s, x, y + 1);
 }
 function drawHpBar(S) {
   const p = S.p, x = p.x, y = p.y - D.PLAYER.h - 24;
   ctx.fillStyle = 'rgba(10,10,10,.7)'; ctx.fillRect(x - 38, y, 76, 10);
   ctx.fillStyle = p.hp / p.max < 0.3 ? '#ff4b3a' : '#7ee04a'; ctx.fillRect(x - 36, y + 2, 72 * p.hp / p.max, 6);
-  for (let i = 0; i < p.shield; i++) { ctx.fillStyle = '#c59bff'; ctx.fillRect(x - 36 + i * 14, y - 8, 10, 5); }
+  for (let i = 0; i < p.shield; i++) { ctx.fillStyle = '#ff8a6a'; ctx.fillRect(x - 36 + i * 14, y - 8, 10, 5); }
 }
 function drawShots(S, t) {
   for (const s of S.shots) {
@@ -340,36 +372,53 @@ function drawShots(S, t) {
     icon('skills', 2, x, y, 38, k * 8);
   }
 }
+// 跳繩：從身體甩出去的繩子（中間微彎），尾端有木把手
 function drawGlow(S, t) {
   const v = CORE.sv(S, 'glow'); if (!v) return;
   const cx = S.p.x, cy = CORE.pc(S);
+  ctx.lineCap = 'round';
   for (let i = 0; i < v.n; i++) {
     const a = S.p.glowA + i * Math.PI * 2 / v.n, ca = Math.cos(a), sa = Math.sin(a);
-    const x0 = cx + ca * 40, y0 = cy + sa * 40, x1 = cx + ca * v.len, y1 = cy + sa * v.len;
-    ctx.lineCap = 'round';
-    for (const [w, c] of [[22, 'rgba(40,140,255,.22)'], [12, 'rgba(70,190,255,.55)'], [5, 'rgba(230,250,255,.95)']]) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); }
+    const x0 = cx + ca * 30, y0 = cy + sa * 30, x1 = cx + ca * v.len, y1 = cy + sa * v.len;
+    const bend = v.len * 0.18, mx = (x0 + x1) / 2 - sa * bend, my = (y0 + y1) / 2 + ca * bend;   // 往後拖一點（轉的反方向）
+    // 殘影
+    ctx.strokeStyle = 'rgba(255,240,210,.18)'; ctx.lineWidth = 16;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(mx - ca * 10, my - sa * 10, x1, y1); ctx.stroke();
+    for (const [w, c] of [[9, '#3a2614'], [5, '#efe3c6']]) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(mx, my, x1, y1); ctx.stroke(); }
+    ctx.save(); ctx.translate(x1, y1); ctx.rotate(a);
+    ctx.fillStyle = '#3a2614'; ctx.fillRect(-4, -8, 30, 16); ctx.fillStyle = '#c98a4a'; ctx.fillRect(-2, -6, 26, 12);
+    ctx.restore();
   }
 }
+// 竹掃把：一支掃把從身體揮出去，後面一片灰塵
 function drawBeams(S) {
   const cx = S.p.x, cy = CORE.pc(S);
   for (const b of S.beams) {
     const a = Math.min(1, (b.dur - b.t) * 6, b.t * 10);
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(b.a);
     const g = ctx.createLinearGradient(0, 0, b.len, 0);
-    g.addColorStop(0, `rgba(255,250,200,${0.9 * a})`); g.addColorStop(1, `rgba(255,220,120,${0.05 * a})`);
-    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(20, -8); ctx.lineTo(b.len, -b.w); ctx.lineTo(b.len, b.w); ctx.lineTo(20, 8); ctx.fill();
-    ctx.restore();
+    g.addColorStop(0, `rgba(230,210,170,${0.05 * a})`); g.addColorStop(0.6, `rgba(220,200,160,${0.4 * a})`); g.addColorStop(1, `rgba(220,200,160,0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(20, -6); ctx.lineTo(b.len, -b.w * 1.2); ctx.lineTo(b.len, b.w * 1.2); ctx.lineTo(20, 6); ctx.fill();
+    ctx.globalAlpha = a;
+    const L = Math.min(b.len * 0.55, 300);
+    ctx.strokeStyle = '#3a2614'; ctx.lineWidth = 9; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(L, 0); ctx.stroke();
+    ctx.strokeStyle = '#d9b36a'; ctx.lineWidth = 5; ctx.stroke();
+    ctx.translate(L + 40, 0); ctx.rotate(Math.PI * 0.75); icon('skills', 4, 0, 0, 130);
+    ctx.restore(); ctx.globalAlpha = 1;
   }
 }
+// 紙飛機：從左上俯衝到怪身上，撞到噴紙屑
 function drawBolts(S, t) {
   for (const b of S.bolts) {
-    const a = 1 - b.t / b.dur;
-    let x = b.x + Math.sin(b.seed) * 60, y = b.y - 700;
-    ctx.strokeStyle = `rgba(200,230,255,${a})`; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(x, y);
-    for (let i = 1; i <= 9; i++) { const k = i / 9; x = b.x + Math.sin(b.seed + i * 7.3) * 34 * (1 - k); y = b.y - 700 * (1 - k); ctx.lineTo(x, y); }
-    ctx.stroke();
-    ctx.strokeStyle = `rgba(255,255,255,${a})`; ctx.lineWidth = 2; ctx.stroke();
-    glowDisk(b.x, b.y, 80 * a + 20, `rgba(170,210,255,${0.7 * a})`);
+    const k = b.t / b.dur;
+    if (k < 0.55) {
+      const q = k / 0.55, sx = b.x - 320 * (1 - q) * (Math.sin(b.seed) > 0 ? 1 : -1), sy = b.y - 520 * (1 - q);
+      ctx.save(); ctx.translate(sx, sy); ctx.rotate(Math.atan2(b.y - sy, b.x - sx) + 0.6); icon('skills', 6, 0, 0, 64); ctx.restore();
+    } else {
+      const a = 1 - (k - 0.55) / 0.45;
+      ctx.fillStyle = `rgba(255,255,255,${a})`;
+      for (let i = 0; i < 8; i++) { const an = i * 0.785 + b.seed, r = 20 + (1 - a) * 60; ctx.fillRect(b.x + Math.cos(an) * r - 4, b.y + Math.sin(an) * r - 3, 8, 6); }
+    }
   }
 }
 function drawFx(S) {
@@ -378,9 +427,11 @@ function drawFx(S) {
     if (f.k === 'flash') {
       ctx.strokeStyle = `rgba(255,255,230,${a * 0.8})`; ctx.lineWidth = 14 * a + 2; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.3 + 0.7 * k), 0, 6.29); ctx.stroke();
       glowDisk(f.x, f.y, f.r * 0.8, `rgba(255,255,220,${a * 0.5})`);
-    } else if (f.k === 'boom') {
-      glowDisk(f.x, f.y, f.r * (0.6 + k * 0.6), `rgba(255,150,40,${a * 0.9})`);
-      ctx.strokeStyle = `rgba(255,210,120,${a})`; ctx.lineWidth = 8 * a + 1; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.4 + k * 0.7), 0, 6.29); ctx.stroke();
+    } else if (f.k === 'boom') {   // 躲避球砸地：白色衝擊圈
+      glowDisk(f.x, f.y, f.r * (0.6 + k * 0.5), `rgba(255,120,100,${a * 0.6})`);
+      ctx.strokeStyle = `rgba(255,245,230,${a})`; ctx.lineWidth = 10 * a + 1; ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * (0.4 + k * 0.8), f.r * (0.25 + k * 0.45), 0, 0, 6.29); ctx.stroke();
+    } else if (f.k === 'pop') {
+      ctx.strokeStyle = `rgba(255,220,120,${a})`; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (0.3 + k), 0, 6.29); ctx.stroke();
     }
   }
 }

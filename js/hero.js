@@ -1,7 +1,7 @@
 // 3D 角色：小編（玩家）、兔兔老師與校長（只在劇情和撤離點出現）
 // 用一個小的 WebGL 畫布輪流畫每個角色，再貼到 2D 主畫面上（2D 畫面負責校舍、怪物、特效）
 import * as THREE from 'three';
-import { loadKind, loadClip, makeActor, updateActor, addJog } from './assets.js?v=1';
+import { loadKind, loadClip, makeActor, updateActor, addJog } from './assets.js?v=2';
 
 const SZ = 256;
 const VIEW = 1.5;            // 正交鏡頭看 1.5 單位寬高（角色 1 單位高）
@@ -23,22 +23,32 @@ export async function init(tick = () => {}) {
   cam.position.set(0, 0, 8); cam.lookAt(0, 0, 0);   // 正交鏡頭的上下界是相對鏡頭位置，鏡頭放在腳底高度
   tint = document.createElement('canvas'); tint.width = tint.height = SZ; tg = tint.getContext('2d');
 
-  const kinds = [['bian', 'bian_walk'], ['bianJog', 'bian_jog', 7], ['tu', 'tu_walk'], ['zhang', 'zhang_walk']];
+  const kinds = [['bian', 'bian_walk'], ['bianJog', 'bian_jog', 7], ['tu', 'tu_walk'], ['zhang', 'zhang_walk'], ['needle', 'needle_walk'], ['needleJog', 'needle_jog', 7]];
   const clips = [['sig_bian', 'sig/bian'], ['sig_tu', 'sig/tu'], ['sig_zhang', 'sig/zhang'], ['stumble', 'moves/stumble'], ['handsup', 'moves/handsup'], ['hop', 'moves/hop']];
   await Promise.all([
     ...kinds.map(async ([k, f, lean]) => { K[k] = await loadKind(`models/${f}.glb`, lean ?? null); tick(); }),
     ...clips.map(async ([k, f]) => { try { CL[k] = await loadClip(`models/${f}.glb`); } catch (e) { console.warn(k, e); } tick(); }),
   ]);
-  for (const k of ['bian', 'tu', 'zhang']) {
+  for (const k of ['bian', 'tu', 'zhang', 'needle']) {
     const a = makeActor(K[k], 1);
     if (k === 'bian' && K.bianJog) addJog(a, K.bianJog);
+    if (k === 'needle' && K.needleJog) addJog(a, K.needleJog);
     a.root.visible = false; scene.add(a.root);
     a.key = k; a.face = 1; a.rot = 0; A[k] = a;
   }
   ready = true;
 }
 export const isReady = () => ready;
-export const LOAD_STEPS = 10;
+export const LOAD_STEPS = 12;
+
+// 角色站姿截圖（升級卡的圖示用）
+export function snapshot(k, face = 0.35) {
+  const a = A[k]; if (!a) return '';
+  const r = a.root.rotation.y; a.root.rotation.y = face;
+  for (const kk in A) A[kk].root.visible = kk === k;
+  R.render(scene, cam); const url = R.domElement.toDataURL('image/png');
+  a.root.rotation.y = r; return url;
+}
 
 // 播一段動作（loop：一直播，像勝利歡呼；不然播一次就回走路）
 export function act(k, clip, loop = false) {

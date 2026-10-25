@@ -7,9 +7,9 @@
   const floorY = (f) => -f * FH;
 
   // ---------- 亂數 ----------
-  function mkRng(seed) {
-    let s = (seed >>> 0) || 1;
-    return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; };
+  // 狀態放在 S.rs（存檔要存得起來）
+  function mkRng(S) {
+    return () => { let s = S.rs; s ^= s << 13; s ^= s >>> 17; s ^= s << 5; S.rs = s >>> 0; return S.rs / 4294967296; };
   }
 
   // ---------- 建立一局 ----------
@@ -20,7 +20,7 @@
     for (let f = 0; f < F; f++) rooms.push(L.rooms[F - 1 - f].split(' '));
     const at = ([f, c]) => ({ f, x: c * W, y: floorY(f) });
     const S = {
-      li, L, F, C, Wt: C * W, rooms, t: 0, rng: mkRng(opt.seed ?? (Date.now() & 0xffffff)),
+      li, L, F, C, Wt: C * W, rooms, t: 0, rs: ((opt.seed ?? (Date.now() & 0xffffff)) >>> 0) || 1,
       view: { w: opt.vw ?? 720, h: opt.vh ?? 1280 }, cam: { x: 0, y: 0 },
       input: { x: 0, y: 0 }, state: 'play', ev: [],
       ladders: L.ladders.map(([f, c]) => ({ f, x: c * W })),
@@ -31,6 +31,7 @@
       sk: { candy: 1 }, tm: {}, buddies: [], offer: null, pending: 0, chestPick: 0,
       spawnAcc: 0, hordeT: L.waves.horde, kills: 0, bossSpawned: false, boss: null, nid: 1,
     };
+    S.rng = mkRng(S);
     const st = at(L.start);
     S.p = { x: st.x, y: st.y, f: st.f, lad: null, face: 1, hp: D.PLAYER.hp, max: D.PLAYER.hp, lv: 1, xp: 0, need: D.needXp(1),
       shield: 0, shieldT: 0, hurtT: 0, inv: 0, moving: 0, vx: 0, glowA: 0 };
@@ -350,7 +351,8 @@
   function stepWeapons(S, dt) {
     const p = S.p, cx = p.x, cy = pc(S);
     let v;
-    // 糖果連發：朝最近的怪丟（優先同一層）
+    stepHelper(S, dt);
+    // 粉筆連發：朝最近的怪丟（優先同一層）
     if ((v = sv(S, 'candy')) && timer(S, 'candy', v.cd, dt)) {
       const sameF = (m) => Math.abs(m.y - cy) < 200;
       let tg = nearest(S, cx, cy, 560, sameF) || nearest(S, cx, cy, 420);
@@ -414,18 +416,24 @@
       for (let s = 30; s <= b.len; s += b.w) query(S, cx + ca * s, cy + sa * s, b.w / 2, (m) => { if (!seen.has(m)) { seen.add(m); hurt(S, m, b.dps * dt, 'beam', true); m.burn = 0.15; } });
     }
     S.beams = S.beams.filter((b) => b.t < b.dur);
-    // 小幽靈好朋友
+    // 扯鈴：在身邊轉，時間到就飛出去撞最近的怪（撞到一小片），再飛回來
     if ((v = sv(S, 'buddy'))) {
-      while (S.buddies.length < v.n) S.buddies.push({ x: cx, y: cy, a: S.buddies.length * 2.1, cd: 0.3 * S.buddies.length });
+      while (S.buddies.length < v.n) S.buddies.push({ x: cx, y: cy, a: S.buddies.length * 2.1, cd: 0.3 * S.buddies.length, st: 'orbit', spin: 0 });
       S.buddies.forEach((b, i) => {
-        b.a += dt * 1.6;
-        const tx = cx + Math.cos(b.a + i * Math.PI * 2 / v.n) * 95, ty = cy - 40 + Math.sin(b.a * 1.3 + i) * 40;
-        b.x += (tx - b.x) * Math.min(1, dt * 4); b.y += (ty - b.y) * Math.min(1, dt * 4);
-        b.cd -= dt;
-        if (b.cd <= 0) {
-          b.cd = v.cd * cdMul(S);
-          const tg = nearest(S, b.x, b.y, 480);
-          if (tg) { const a = Math.atan2(tg.y - b.y, tg.x - b.x); S.shots.push({ k: 'goo', x: b.x, y: b.y, vx: Math.cos(a) * 560, vy: Math.sin(a) * 560, life: 0.9, dmg: v.dmg, pierce: 0, hit: new Set() }); }
+        b.a += dt * 1.6; b.spin += dt * 20;
+        const ox = cx + Math.cos(b.a + i * Math.PI * 2 / v.n) * 95, oy = cy - 30 + Math.sin(b.a * 1.3 + i) * 40;
+        if (b.st === 'orbit') {
+          b.x += (ox - b.x) * Math.min(1, dt * 6); b.y += (oy - b.y) * Math.min(1, dt * 6);
+          b.cd -= dt;
+          if (b.cd <= 0) { const tg = nearest(S, b.x, b.y, 480); if (tg) { b.st = 'out'; b.tx = tg.x; b.ty = tg.y; } else b.cd = 0.3; }
+        } else {
+          const tx = b.st === 'out' ? b.tx : ox, ty = b.st === 'out' ? b.ty : oy;
+          const dx = tx - b.x, dy = ty - b.y, d = Math.hypot(dx, dy) || 1, step = 1100 * dt;
+          if (d <= step) {
+            b.x = tx; b.y = ty;
+            if (b.st === 'out') { query(S, b.x, b.y, 50, (m) => hurt(S, m, v.dmg, 'buddy')); S.fx.push({ k: 'pop', x: b.x, y: b.y, r: 50, t: 0, dur: 0.25 }); b.st = 'back'; }
+            else { b.st = 'orbit'; b.cd = v.cd * cdMul(S); }
+          } else { b.x += dx / d * step; b.y += dy / d * step; }
         }
       });
     }
@@ -472,6 +480,53 @@
     }
     S.bombs = S.bombs.filter((b) => !b.done);
     S.fx.forEach((f) => (f.t += dt)); S.fx = S.fx.filter((f) => f.t < f.dur);
+  }
+
+  // ---------- 針筒超人：校長先走出來，變身打 20 秒，變回校長休息 20 秒，一直輪流 ----------
+  const HELP = { first: 2, calm: 20, fight: 20, tf: 0.9, back: 0.6 };
+  function stepHelper(S, dt) {
+    const v = sv(S, 'hero'); if (!v) return;
+    const p = S.p, pf = pFloor(S);
+    let h = S.helper;
+    if (!h) {
+      const side = p.x > S.Wt - 200 ? -1 : p.x < 200 ? 1 : -p.face || 1;
+      h = S.helper = { ph: 'calm', t: 0, left: HELP.first, x: p.x + side * 110, y: p.y, f: p.f, face: -side, hitT: 0, vx: 0, vy: 0, moving: 0 };
+      S.ev.push({ k: 'heroIn', x: h.x, y: h.y });
+      return;
+    }
+    h.t += dt;
+    if (h.ph === 'calm') {
+      // 校長：跟在小編旁邊走；小編換樓層就從樓梯「咻」一下跟上
+      h.left -= dt;
+      if (h.f !== pf && p.lad == null) { h.lost = (h.lost || 0) + dt; if (h.lost > 1.2) { h.lost = 0; h.f = p.f; h.x = p.x - p.face * 90; S.ev.push({ k: 'heroIn', x: h.x, y: floorY(h.f) }); } }
+      h.y = floorY(h.f);
+      const tx = Math.max(30, Math.min(S.Wt - 30, p.x - p.face * 90)), dx = tx - h.x;
+      const st = Math.abs(dx) > 40 ? Math.sign(dx) * Math.min(170, Math.abs(dx) * 3) : 0;
+      h.x += st * dt; h.moving = Math.abs(st);
+      h.face = Math.abs(dx) > 40 ? Math.sign(dx) : (p.x > h.x ? 1 : -1);
+      if (h.left <= 0) { h.ph = 'tf'; h.t = 0; S.ev.push({ k: 'heroTf', x: h.x, y: h.y - 60 }); }
+    } else if (h.ph === 'tf') {
+      if (h.t >= HELP.tf) { h.ph = 'fight'; h.t = 0; h.left = HELP.fight; h.vx = h.vy = 0; }
+    } else if (h.ph === 'fight') {
+      h.left -= dt;
+      // 飛向小編附近的怪（穿樓板）
+      h.retT = (h.retT || 0) - dt;
+      if (!h.tg || h.tg.dead || h.retT <= 0) { h.tg = nearest(S, p.x, pc(S), 700) || null; h.retT = 0.8; }
+      const tx = h.tg ? h.tg.x : p.x + 80 * p.face, ty = h.tg ? h.tg.y + 50 : p.y - 130;
+      const dx = tx - h.x, dy = ty - h.y, d = Math.hypot(dx, dy) || 1;
+      h.vx += (dx / d * v.spd - h.vx) * Math.min(1, dt * 5); h.vy += (dy / d * v.spd - h.vy) * Math.min(1, dt * 5);
+      h.x = Math.max(30, Math.min(S.Wt - 30, h.x + h.vx * dt)); h.y += h.vy * dt;
+      h.moving = Math.hypot(h.vx, h.vy);
+      if (Math.abs(h.vx) > 30) h.face = h.vx > 0 ? 1 : -1;
+      h.hitT -= dt;
+      if (h.hitT <= 0) { h.hitT = 0.25; query(S, h.x, h.y - 55, v.r, (m) => { hurt(S, m, v.dmg, 'hero'); m.x += Math.sign(m.x - h.x) * 14; }); }
+      if (h.left <= 0) {   // 變回校長：落在小編旁邊
+        h.ph = 'back'; h.t = 0; h.f = pf; h.x = Math.max(30, Math.min(S.Wt - 30, p.x - p.face * 90)); h.y = floorY(h.f);
+        S.ev.push({ k: 'heroBack', x: h.x, y: h.y - 60 });
+      }
+    } else if (h.ph === 'back') {
+      if (h.t >= HELP.back) { h.ph = 'calm'; h.t = 0; h.left = HELP.calm; }
+    }
   }
 
   // ---------- 撿東西 ----------
@@ -589,5 +644,34 @@
     updCam(S, Math.min(1, dt * 6));
   }
 
-  G.CORE = { create, step, choose, floorY, pc, pFloor, sv, onScreen, updCam, ROOM: D.ROOM };
+  // ---------- 存檔：關卡打到一半也能存起來，下次接著玩 ----------
+  const MKEYS = ['id', 'k', 'x', 'y', 'f', 'vy', 'vx', 'hp', 'max', 'spd', 'cl', 'face', 'ph', 'age', 'stun', 'slow'];
+  function serialize(S) {
+    const pick = (o, ks) => { const r = {}; for (const k of ks) r[k] = o[k]; return r; };
+    return {
+      v: 1, li: S.li, t: S.t, rs: S.rs, p: { ...S.p }, sk: { ...S.sk }, tm: { ...S.tm },
+      items: S.items.map((i) => [i.got, i.prog]), chests: S.chests.map((c) => c.open), exit: pick(S.exit, ['open', 'left']),
+      mons: S.mons.filter((m) => !m.dead).map((m) => pick(m, MKEYS)), boss: S.boss ? S.boss.id : null,
+      gems: S.gems.slice(-150).map((g) => pick(g, ['x', 'y', 'fy', 'v', 'heart', 'big'])),
+      pools: S.pools.map((p) => ({ ...p })), buddies: S.buddies.map((b) => ({ ...b, st: 'orbit' })),
+      helper: S.helper ? { ...S.helper, tg: null } : null,
+      pending: S.pending + (S.offer ? 1 : 0), chestPick: S.chestPick, spawnAcc: S.spawnAcc, hordeT: S.hordeT, kills: S.kills, nid: S.nid, heroSeen: S.heroSeen,
+    };
+  }
+  function restore(o, opt = {}) {
+    const S = create(o.li, { seed: 1, ...opt });
+    Object.assign(S, { t: o.t, rs: o.rs, sk: o.sk, tm: o.tm, pending: o.pending, chestPick: o.chestPick, spawnAcc: o.spawnAcc, hordeT: o.hordeT, kills: o.kills, nid: o.nid, heroSeen: o.heroSeen });
+    Object.assign(S.p, o.p);
+    o.items.forEach(([got, prog], i) => { S.items[i].got = got; S.items[i].prog = prog; });
+    o.chests.forEach((open, i) => { S.chests[i].open = open; });
+    Object.assign(S.exit, o.exit);
+    S.mons = o.mons.map((m) => ({ ...m, d: D.MONS[m.k], r: D.MONS[m.k].r, conn: null, connT: 0, hitCd: 0.5, flash: 0, dead: false }));
+    S.boss = o.boss != null ? S.mons.find((m) => m.id === o.boss) || null : null;
+    S.gems = o.gems.map((g) => ({ ...g, vy: 0, vx: 0, pull: false, delay: 0.2 }));
+    S.pools = o.pools; S.buddies = o.buddies; S.helper = o.helper;
+    updCam(S, 1);
+    return S;
+  }
+
+  G.CORE = { create, step, choose, serialize, restore, floorY, pc, pFloor, sv, onScreen, updCam, ROOM: D.ROOM };
 })(typeof window !== 'undefined' ? window : globalThis);

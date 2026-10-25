@@ -1,6 +1,6 @@
 // 主程式：畫面切換、搖桿、遊戲迴圈、上方資訊、升級卡、劇情對話、存檔
-import * as HERO from './hero.js?v=1';
-import * as R from './render.js?v=1';
+import * as HERO from './hero.js?v=2';
+import * as R from './render.js?v=2';
 
 const CORE = window.CORE, D = window.DATA, SND = window.SND;
 const $ = (id) => document.getElementById(id);
@@ -18,6 +18,17 @@ const SAVE_KEY = 'bian-halloween';
 let save = { open: 1, best: {} };
 try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.open) save = s; } catch (e) {}
 const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} };
+// 打到一半的存檔：每 5 秒、暫停、跳出遊戲時存；過關、失敗、重來就清掉
+const RUN_KEY = 'bian-halloween-run';
+let lastRunSave = 0;
+function saveRun() {
+  if (!S || story || !['play', 'pick', 'pause'].includes(mode) || S.state === 'dead' || S.state === 'clear') return;
+  try { localStorage.setItem(RUN_KEY, JSON.stringify(CORE.serialize(S))); lastRunSave = S.t; } catch (e) {}
+}
+const clearRun = () => { try { localStorage.removeItem(RUN_KEY); } catch (e) {} };
+function loadRun() { try { const o = JSON.parse(localStorage.getItem(RUN_KEY)); return o && o.v === 1 && D.LEVELS[o.li] ? o : null; } catch (e) { return null; } }
+document.addEventListener('visibilitychange', () => { if (document.hidden) { saveRun(); if (mode === 'play') pause(true); } });
+addEventListener('pagehide', saveRun);
 
 // ---------- 擋縮放、選取、長按 ----------
 const stop = (e) => e.preventDefault();
@@ -89,6 +100,11 @@ function goTitle() {
   S = CORE.create(0, { seed: 7, vw: view.w, vh: view.h });
   S.p.x = 1.5 * D.ROOM.W; CORE.updCam(S, 1);
   show('title'); SND.music('title');
+  const run = loadRun(), bc = $('bContinue');
+  bc.classList.toggle('hide', !run);
+  if (run) bc.innerHTML = `繼續<small>第 ${run.li + 1} 關・${fmt(run.t)}</small>`;
+  $('bStart').textContent = run ? '重新開始' : '開始';
+  $('bStart').classList.toggle('big', !run);
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) && !navigator.standalone;
   $('iosTip').classList.toggle('hide', !ios);
 }
@@ -96,16 +112,17 @@ function goSelect() {
   mode = 'select'; show('select');
   const box = $('levels'); box.innerHTML = '';
   D.LEVELS.forEach((L, i) => {
-    const b = document.createElement('button'); b.className = 'lvc' + (i + 1 > save.open ? ' lock' : '');
+    const b = document.createElement('button'); b.className = 'lvc' + (save.best[i] != null ? ' done' : '');
     b.style.setProperty('--r', ((i % 2 ? 1 : -1) * 0.6) + 'deg');
     const its = L.items.map(([k]) => `<i style="${iconPos(D.ITEMS[k].icon)}"></i>`).join('');
-    const best = save.best[i] != null ? `<span class="best">最快 ${fmt(save.best[i])}</span>` : '';
+    const best = save.best[i] != null ? `<span class="best">過關・最快 ${fmt(save.best[i])}</span>` : '';
     b.innerHTML = `<span class="n">${i + 1}</span><span class="t"><b>${L.name}</b><span>${L.sub}</span></span><span class="its">${its}</span>${best}`;
-    b.onclick = () => { if (i + 1 > save.open) return; SND.play('tap'); startLevel(i); };
+    b.onclick = () => { SND.play('tap'); startLevel(i); };
     box.appendChild(b);
   });
 }
-const iconPos = (i) => `background-position:${(i % 4) * 33.333}% ${(i >> 2) * 33.333}%`;
+let HERO_ICON = '';   // 針筒超人的卡片圖示：載入後用 3D 模型拍一張
+const iconPos = (i) => i === 'hero' ? `background-image:url(${HERO_ICON});background-size:contain;background-position:center` : `background-position:${(i % 4) * 33.333}% ${(i >> 2) * 33.333}%`;
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 function fullscreen() {
@@ -115,7 +132,7 @@ function fullscreen() {
 
 // ---------- 開始一關 ----------
 function startLevel(i) {
-  li = i; fullscreen();
+  li = i; fullscreen(); clearRun();
   S = CORE.create(i, { vw: view.w, vh: view.h });
   acc = 0; joy.id = null; joy.on = false;
   // 槽位
@@ -124,6 +141,16 @@ function startLevel(i) {
   const st = D.STORY[S.L.story];
   story = true;
   talk(st.intro, () => { story = false; begin(); });
+}
+// 接著上次存的地方玩（不重播劇情）
+function continueRun() {
+  const o = loadRun(); if (!o) { startLevel(0); return; }
+  fullscreen();
+  li = o.li; S = CORE.restore(o, { vw: view.w, vh: view.h }); acc = 0; joy.id = null; joy.on = false;
+  $('slots').innerHTML = S.items.map((it) => `<div class="slot${it.got ? ' got' : ''}"><i style="${iconPos(D.ITEMS[it.k].icon)}"></i></div>`).join('');
+  story = false; SND.urgent(S.exit.open || !!S.boss);
+  mode = 'play'; show('hud'); SND.music('play');
+  tip(`接著上次：第 ${li + 1} 關・${S.L.name}`, 2.6);
 }
 function begin() {
   mode = 'play'; show('hud'); SND.music('play');
@@ -141,7 +168,7 @@ function npcs() {
     list.forEach((k, i) => out.push({ k, x: p.x + side * (110 + i * 95), y: p.y, h: k === 'zhang' ? 118 : 112, face: -side }));
   } else {
     const ex = S.exit;
-    list.forEach((k, i) => out.push({ k, x: ex.x + 80 + i * 90, y: ex.y, h: k === 'zhang' ? 118 : 112, face: -1 }));
+    list.filter((k) => !(k === 'zhang' && S.helper)).forEach((k, i) => out.push({ k, x: ex.x + 80 + i * 90, y: ex.y, h: k === 'zhang' ? 118 : 112, face: -1 }));
   }
   return out;
 }
@@ -206,10 +233,11 @@ function pause(on) {
 $('bPause').addEventListener('click', () => { if (mode === 'play') pause(true); });
 $('pResume').onclick = () => pause(false);
 $('pRetry').onclick = () => startLevel(li);
-$('pMenu').onclick = () => goSelect();
+$('pMenu').onclick = () => { saveRun(); goTitle(); };
 $('pMute').onclick = () => { SND.setMuted(!SND.muted()); $('pMute').textContent = '聲音：' + (SND.muted() ? '關' : '開'); };
 
 function cleared() {
+  clearRun();
   mode = 'outro'; story = true; joy.on = false;
   SND.urgent(false); SND.music(null);
   HERO.act('bian', 'sig_bian', true);
@@ -223,6 +251,7 @@ function cleared() {
   }, 1600);
 }
 function failed() {
+  clearRun();
   mode = 'dead'; joy.on = false; SND.urgent(false); SND.music(null);
   HERO.act('bian', 'stumble');
   setTimeout(() => result(false), 1400);
@@ -283,6 +312,9 @@ function handleEvents() {
       case 'boss': SND.play('boss'); SND.urgent(true); tip('頂樓的南瓜大王出現了！', 3.2, true); break;
       case 'bossDown': SND.play('boom'); break;
       case 'waitStart': tip(`站在房間裡等${S.L.npc === 'zhang' ? '校長' : '兔兔老師'}開門，撐住！`, 2.6, true); break;
+      case 'heroIn': SND.play('poof'); if (!e.quiet && !S.heroSeen) { S.heroSeen = true; tip('校長來幫忙了！等一下會變身', 2.4); } break;
+      case 'heroTf': SND.play('transform'); HERO.act('zhang', 'handsup'); tip('校長變身！針筒超人登場（20 秒）', 2.2); break;
+      case 'heroBack': SND.play('poof'); tip('變回校長，休息 20 秒再變身', 2); break;
       case 'clear': SND.play('clear'); cleared(); break;
       case 'dead': failed(); break;
     }
@@ -349,14 +381,18 @@ function frame(now) {
   }
   const vis = ns.filter((n) => Math.abs(n.x - S.cam.x) < view.w / 2 + 120 && Math.abs(n.y - S.cam.y) < view.h / 2 + 200);
   for (const n of ns) HERO.update(n.k, dt, T, { speed: 0, face: n.face, front: true });
+  const h = S.helper;
+  if (h && !story) HERO.update(h.ph === 'fight' ? 'needle' : 'zhang', dt, T, { speed: h.ph === 'calm' ? h.moving / 120 : 0, face: h.face, front: h.ph !== 'calm' || h.moving < 5 });
   R.draw(S, { t: T, dt, joy: mode === 'play' && joy.on ? toUi(joy) : null, npcs: vis, story: story || mode !== 'play' });
   if (S && mode !== 'title' && mode !== 'select' && mode !== 'loading') hud();
+  if (mode === 'play' && S.t - lastRunSave >= 5) saveRun();
 }
 const toUi = (j) => ({ bx: j.bx, by: j.by, x: j.bx + Math.max(-54, Math.min(54, j.x - j.bx)), y: j.by + Math.max(-54, Math.min(54, j.y - j.by)) });
 
 // ---------- 開機 ----------
-$('bStart').onclick = () => { SND.play('tap'); startLevel(Math.min(save.open, D.LEVELS.length) - 1 >= 0 && save.open > 1 ? save.open - 1 : 0); };
+$('bStart').onclick = () => { SND.play('tap'); const n = D.LEVELS.findIndex((_, i) => save.best[i] == null); startLevel(n < 0 ? 0 : n); };
 $('bSelect').onclick = () => { SND.play('tap'); goSelect(); };
+$('bContinue').onclick = () => { SND.play('tap'); continueRun(); };
 $('bBack').onclick = () => { SND.play('tap'); goTitle(); };
 
 async function boot() {
@@ -366,6 +402,7 @@ async function boot() {
   try {
     await Promise.all([HERO.init(tick), R.loadImages(tick)]);
   } catch (e) { console.error(e); $('ldText').textContent = '載入失敗，請重新整理'; return; }
+  HERO_ICON = HERO.snapshot('needle');
   goTitle();
   requestAnimationFrame(loop);
 }

@@ -9,13 +9,13 @@
 <meta name="apple-mobile-web-app-title" content="小編萬聖夜">
 <meta name="theme-color" content="#101722">
 <title>小編萬聖夜｜山頂國小</title>
-<link rel="icon" href="icon-192.png?v=1">
-<link rel="apple-touch-icon" href="icon-180.png?v=1">
+<link rel="icon" href="icon-192.png?v=2">
+<link rel="apple-touch-icon" href="icon-180.png?v=2">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 <canvas id="cv"></canvas>
@@ -74,9 +74,10 @@
   <!-- 標題 -->
   <div id="title" class="screen hide">
     <div class="school">山頂國小</div>
-    <h1><img class="logo" src="art/logo.webp?v=1" alt="小編萬聖夜"></h1>
+    <h1><img class="logo" src="art/logo.webp?v=2" alt="小編萬聖夜"></h1>
     <p class="sub">萬聖節晚會前，南瓜仔佔領了校舍</p>
     <div class="t-btns">
+      <button class="btn big hide" id="bContinue">繼續</button>
       <button class="btn big" id="bStart">開始</button>
       <button class="btn ghost" id="bSelect">選關</button>
     </div>
@@ -86,7 +87,8 @@
 
   <!-- 選關 -->
   <div id="select" class="screen hide">
-    <div class="sel-head"><button class="tag" id="bBack">返回</button><h2>今晚的路線</h2></div>
+    <div class="sel-head"><button class="tag" id="bBack">返回</button><h2>選關</h2></div>
+    <p class="sel-sub">每一關都可以直接玩；打到一半離開會自動存檔，標題畫面按「繼續」接著玩</p>
     <div id="levels"></div>
   </div>
 
@@ -96,9 +98,9 @@
   </div>
 </div>
 
-<script src="js/data.js?v=1"></script>
-<script src="js/core.js?v=1"></script>
-<script src="js/audio.js?v=1"></script>
+<script src="js/data.js?v=2"></script>
+<script src="js/core.js?v=2"></script>
+<script src="js/audio.js?v=2"></script>
 <script>
   if (!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('importmap'))) {
     const sc = document.createElement('script'); sc.async = true; sc.src = 'vendor/es-module-shims.js'; document.head.appendChild(sc);
@@ -107,6 +109,6 @@
 <script type="importmap">
 {"imports":{"three":"./vendor/three/build/three.module.min.js","three/addons/":"./vendor/three/examples/jsm/"}}
 </script>
-<script type="module" src="js/main.js?v=1"></script>
+<script type="module" src="js/main.js?v=2"></script>
 </body>
 </html>

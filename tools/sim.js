@@ -4,7 +4,7 @@ require('../js/data.js'); require('../js/core.js'); require('../js/bot.js');
 const { CORE, DATA, BOT: botInput } = globalThis;
 const SEEDS = +(process.env.SEEDS || 8);
 const only = process.argv[2] ? [+process.argv[2] - 1] : DATA.LEVELS.map((_, i) => i);
-const PREF = ['glow', 'candy', 'bomb', 'thunder', 'flash', 'beam', 'buddy', 'brew', 'cape', 'bento', 'frost', 'shoe', 'magnet', 'clock'];
+const PREF = ['glow', 'hero', 'candy', 'bomb', 'thunder', 'flash', 'beam', 'buddy', 'brew', 'cape', 'bento', 'frost', 'shoe', 'magnet', 'clock'];
 
 function run(li, seed) {
   const S = CORE.create(li, { seed: seed * 7919 + 13 });

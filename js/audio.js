@@ -123,10 +123,10 @@
     throw() { if (!limit('throw', 90)) return; const t = ac.currentTime; tone('triangle', 900, t, 0.002, 0.06, 0.08, sfxBus, 1500); },
     hit() { if (!limit('hit', 45)) return; const t = ac.currentTime; noise(t, 0.04, sfxBus, { type: 'bandpass', f: 2400, q: 2, vol: 0.06 }); },
     die() { if (!limit('die', 60)) return; const t = ac.currentTime; tone('sine', 420 + Math.random() * 160, t, 0.002, 0.09, 0.09, sfxBus, 160); noise(t, 0.06, sfxBus, { type: 'lowpass', f: 900, vol: 0.06 }); },
-    boom() { if (!limit('boom', 80)) return; const t = ac.currentTime; noise(t, 0.4, sfxBus, { type: 'lowpass', f: 1400, f2: 120, vol: 0.32 }); tone('sine', 120, t, 0.002, 0.3, 0.3, sfxBus, 40); },
-    thunder() { const t = ac.currentTime; noise(t, 0.08, sfxBus, { type: 'highpass', f: 3000, vol: 0.2 }); noise(t + 0.05, 0.5, sfxBus, { type: 'lowpass', f: 600, f2: 90, vol: 0.28 }); },
-    flash() { const t = ac.currentTime; noise(t, 0.03, sfxBus, { type: 'highpass', f: 5000, vol: 0.2 }); tone('sine', 2600, t + 0.02, 0.002, 0.25, 0.06, sfxBus, 4000); },
-    beam() { const t = ac.currentTime; tone('sawtooth', 300, t, 0.02, 0.45, 0.05, sfxBus, 900); },
+    boom() { if (!limit('boom', 80)) return; const t = ac.currentTime; tone('sine', 180, t, 0.002, 0.18, 0.35, sfxBus, 60); noise(t, 0.08, sfxBus, { type: 'bandpass', f: 600, q: 1, vol: 0.2 }); },   // 躲避球砸地：砰
+    thunder() { const t = ac.currentTime; noise(t, 0.3, sfxBus, { type: 'bandpass', f: 900, f2: 2800, q: 2, vol: 0.12 }); noise(t + 0.22, 0.08, sfxBus, { type: 'highpass', f: 2500, vol: 0.12 }); },   // 紙飛機咻～
+    flash() { const t = ac.currentTime; const o = ac.createOscillator(), g = ac.createGain(), l = ac.createOscillator(), lg = ac.createGain(); o.type = 'sine'; o.frequency.value = 2900; l.frequency.value = 38; lg.gain.value = 160; l.connect(lg); lg.connect(o.frequency); o.connect(g); g.connect(sfxBus); env(g, t, 0.01, 0.45, 0.07); o.start(t); l.start(t); o.stop(t + 0.5); l.stop(t + 0.5); },   // 哨子嗶～（顫音）
+    beam() { const t = ac.currentTime; noise(t, 0.35, sfxBus, { type: 'bandpass', f: 1800, f2: 600, q: 0.8, vol: 0.14 }); },   // 掃把唰
     gem() { if (!limit('gem', 35)) return; const t = ac.currentTime; const k = Math.min(12, (FX.gemN = ((performance.now() - (FX.gemAt || 0)) < 400 ? (FX.gemN || 0) + 1 : 0))); FX.gemAt = performance.now(); tone('sine', mtof(84 + [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28][k]), t, 0.002, 0.08, 0.05, sfxBus); },
     lvup() { const t = ac.currentTime; [74, 78, 81, 86].forEach((m, i) => tone('square', mtof(m), t + i * 0.07, 0.003, 0.18, 0.05, sfxBus)); },
     pick() { const t = ac.currentTime; tone('triangle', mtof(81), t, 0.003, 0.12, 0.1, sfxBus); tone('triangle', mtof(88), t + 0.08, 0.003, 0.2, 0.1, sfxBus); },
@@ -140,6 +140,8 @@
     exit() { const t = ac.currentTime; [74, 81, 86].forEach((m, i) => tone('sine', mtof(m), t + i * 0.12, 0.003, 0.7, 0.09, sfxBus)); },
     clear() { const t = ac.currentTime; [74, 78, 81, 86, 81, 86, 90].forEach((m, i) => tone('square', mtof(m), t + i * 0.11, 0.003, i === 6 ? 0.8 : 0.16, 0.06, sfxBus)); },
     dead() { const t = ac.currentTime; [69, 68, 67, 62].forEach((m, i) => tone('triangle', mtof(m), t + i * 0.22, 0.003, i === 3 ? 0.8 : 0.24, 0.1, sfxBus)); },
+    poof() { const t = ac.currentTime; noise(t, 0.25, sfxBus, { type: 'lowpass', f: 1600, f2: 300, vol: 0.15 }); },
+    transform() { const t = ac.currentTime; [62, 66, 69, 74, 78, 81, 86].forEach((m, i) => tone('square', mtof(m), t + i * 0.05, 0.003, 0.12, 0.05, sfxBus)); noise(t + 0.35, 0.4, sfxBus, { type: 'highpass', f: 2000, vol: 0.12 }); },
     tap() { const t = ac.currentTime; tone('triangle', 660, t, 0.002, 0.05, 0.06, sfxBus); },
     talk() { if (!limit('talk', 70)) return; const t = ac.currentTime; tone('triangle', 520 + Math.random() * 120, t, 0.002, 0.035, 0.03, sfxBus); },
   };
