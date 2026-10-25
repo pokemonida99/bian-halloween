@@ -9,13 +9,13 @@
 <meta name="apple-mobile-web-app-title" content="小編萬聖夜">
 <meta name="theme-color" content="#101722">
 <title>小編萬聖夜｜山頂國小</title>
-<link rel="icon" href="icon-192.png?v=2">
-<link rel="apple-touch-icon" href="icon-180.png?v=2">
+<link rel="icon" href="icon-192.png?v=3">
+<link rel="apple-touch-icon" href="icon-180.png?v=3">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 <canvas id="cv"></canvas>
@@ -74,7 +74,7 @@
   <!-- 標題 -->
   <div id="title" class="screen hide">
     <div class="school">山頂國小</div>
-    <h1><img class="logo" src="art/logo.webp?v=2" alt="小編萬聖夜"></h1>
+    <h1><img class="logo" src="art/logo.webp?v=3" alt="小編萬聖夜"></h1>
     <p class="sub">萬聖節晚會前，南瓜仔佔領了校舍</p>
     <div class="t-btns">
       <button class="btn big hide" id="bContinue">繼續</button>
@@ -82,6 +82,7 @@
       <button class="btn ghost" id="bSelect">選關</button>
     </div>
     <p class="how">拖曳畫面走路・碰到梯子往上推就爬・攻擊全自動</p>
+    <button class="op-again" id="bOP">再看一次片頭</button>
     <p class="iosTip hide" id="iosTip">iPhone：Safari 按「分享 → 加入主畫面」，從主畫面打開就是全螢幕</p>
   </div>
 
@@ -92,15 +93,24 @@
     <div id="levels"></div>
   </div>
 
+  <!-- 片頭 -->
+  <div id="op" class="screen hide">
+    <p class="op-line" id="opLine">山頂國小・萬聖節的晚上</p>
+    <h1><img class="logo" id="opLogo" src="art/logo.webp?v=3" alt="小編萬聖夜"></h1>
+    <p class="op-sub" id="opSub">南瓜仔佔領了校舍！</p>
+    <button class="op-skip" id="opSkip">跳過</button>
+  </div>
+
   <!-- 載入 -->
   <div id="loading" class="screen">
-    <div class="ld"><b>小編萬聖夜</b><i><em id="ldBar"></em></i><span id="ldText">南瓜燈點起來中…</span></div>
+    <div class="ld"><b>小編萬聖夜</b><i><em id="ldBar"></em></i><span id="ldText">南瓜燈點起來中…</span>
+      <button class="btn big hide" id="bEnter">點一下開始</button><span class="ld-note hide" id="ldNote">有配樂，記得開聲音</span></div>
   </div>
 </div>
 
-<script src="js/data.js?v=2"></script>
-<script src="js/core.js?v=2"></script>
-<script src="js/audio.js?v=2"></script>
+<script src="js/data.js?v=3"></script>
+<script src="js/core.js?v=3"></script>
+<script src="js/audio.js?v=3"></script>
 <script>
   if (!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('importmap'))) {
     const sc = document.createElement('script'); sc.async = true; sc.src = 'vendor/es-module-shims.js'; document.head.appendChild(sc);
@@ -109,6 +119,6 @@
 <script type="importmap">
 {"imports":{"three":"./vendor/three/build/three.module.min.js","three/addons/":"./vendor/three/examples/jsm/"}}
 </script>
-<script type="module" src="js/main.js?v=2"></script>
+<script type="module" src="js/main.js?v=3"></script>
 </body>
 </html>

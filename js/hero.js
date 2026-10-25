@@ -1,7 +1,7 @@
 // 3D 角色：小編（玩家）、兔兔老師與校長（只在劇情和撤離點出現）
 // 用一個小的 WebGL 畫布輪流畫每個角色，再貼到 2D 主畫面上（2D 畫面負責校舍、怪物、特效）
 import * as THREE from 'three';
-import { loadKind, loadClip, makeActor, updateActor, addJog } from './assets.js?v=2';
+import { loadKind, loadClip, makeActor, updateActor, addJog } from './assets.js?v=3';
 
 const SZ = 256;
 const VIEW = 1.5;            // 正交鏡頭看 1.5 單位寬高（角色 1 單位高）

@@ -1,4 +1,5 @@
-// 程式合成配樂與音效（不用音檔）：萬聖節小調進行 Dm–B♭–Gm–A，撥弦大鍵琴旋律＋撥弦低音＋管風琴＋鼓
+// 配樂：使用者給的歌 music/bgm.m4a（片頭、標題、遊戲中一直循環）；音效用程式合成
+// 歌載不到時才用程式合成的萬聖節小調（Dm–B♭–Gm–A，撥弦大鍵琴＋撥弦低音＋管風琴＋鼓）
 // iPhone 要在觸控事件裡解鎖；iOS 17+ 設 audioSession=playback；跳出遊戲聲音整個停
 (function () {
   let ac = null, master = null, musicBus = null, sfxBus = null, noiseBuf = null;
@@ -6,6 +7,10 @@
   try { muted = localStorage.getItem('bian-halloween-mute') === '1'; } catch (e) {}
   const lastAt = {};
   let want = null, cur = null, urgent = 0;
+  // 歌：用 <audio> 播（不用整首解碼進記憶體），接進 WebAudio 才吃得到靜音與音量
+  const song = new Audio('music/bgm.m4a?v=3'); song.loop = true; song.preload = 'auto';
+  let songOk = true, songNode = null, songBus = null;
+  song.addEventListener('error', () => { songOk = false; if (cur === 'song') { cur = null; startMusic('song'); } });
 
   function unlock() {
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
@@ -17,6 +22,8 @@
       master = ac.createGain(); master.gain.value = muted ? 0 : 0.8; master.connect(comp);
       musicBus = ac.createGain(); musicBus.gain.value = 0.34; musicBus.connect(master);
       sfxBus = ac.createGain(); sfxBus.gain.value = 0.75; sfxBus.connect(master);
+      songBus = ac.createGain(); songBus.gain.value = 0.55; songBus.connect(master);
+      try { songNode = ac.createMediaElementSource(song); songNode.connect(songBus); } catch (e) { songNode = null; }
       const n = ac.sampleRate * 2; noiseBuf = ac.createBuffer(1, n, ac.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
       if (want) startMusic(want);
@@ -25,7 +32,11 @@
   }
   ['touchstart', 'touchend', 'pointerdown', 'keydown'].forEach((ev) => window.addEventListener(ev, unlock, { passive: true }));
   let away = false;
-  function awayChange(h) { away = h; if (!ac) return; if (h) ac.suspend(); else ac.resume(); }
+  function awayChange(h) {
+    away = h;
+    if (h) song.pause(); else if (cur === 'song' && songOk) song.play().catch(() => {});
+    if (!ac) return; if (h) ac.suspend(); else ac.resume();
+  }
   document.addEventListener('visibilitychange', () => awayChange(document.hidden));
   window.addEventListener('pagehide', () => awayChange(true));
   window.addEventListener('pageshow', () => awayChange(document.hidden));
@@ -102,8 +113,18 @@
     } },
   };
   let seqI = 0, seqT = 0, timerId = null;
-  function startMusic(name) {
+  function startMusic(name, opt = {}) {
     want = name;
+    if (name !== 'song') song.pause();
+    if (name === 'song' && songOk) {   // 歌（從頭播或接著播）
+      if (timerId) { clearInterval(timerId); timerId = null; }
+      if (opt.restart) song.currentTime = 0;
+      if (!songNode) song.volume = muted ? 0 : 0.55;
+      cur = 'song';
+      if (!away) song.play().catch(() => {});
+      return;
+    }
+    if (name === 'song') name = 'play';   // 歌載不到：用合成的
     if (!ac) return;
     if (cur === name) return;
     cur = name; seqI = 0; seqT = ac.currentTime + 0.08;
@@ -148,9 +169,11 @@
 
   window.SND = {
     play(name) { if (!ac || muted || ac.state !== 'running') return; const f = FX[name]; if (f) f(); },
-    music(name) { startMusic(name); },
+    music(name, opt) { startMusic(name, opt); },
+    songTime: () => song.currentTime,
+    unlock,
     urgent(v) { urgent = v ? 1 : 0; },
     muted: () => muted,
-    setMuted(v) { muted = v; try { localStorage.setItem('bian-halloween-mute', v ? '1' : '0'); } catch (e) {} if (master) master.gain.value = v ? 0 : 0.8; },
+    setMuted(v) { muted = v; try { localStorage.setItem('bian-halloween-mute', v ? '1' : '0'); } catch (e) {} if (master) master.gain.value = v ? 0 : 0.8; if (!songNode) song.volume = v ? 0 : 0.55; },
   };
 })();

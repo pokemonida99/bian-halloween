@@ -1,6 +1,6 @@
 // 主程式：畫面切換、搖桿、遊戲迴圈、上方資訊、升級卡、劇情對話、存檔
-import * as HERO from './hero.js?v=2';
-import * as R from './render.js?v=2';
+import * as HERO from './hero.js?v=3';
+import * as R from './render.js?v=3';
 
 const CORE = window.CORE, D = window.DATA, SND = window.SND;
 const $ = (id) => document.getElementById(id);
@@ -92,14 +92,14 @@ function readInput() {
 }
 
 // ---------- 畫面切換 ----------
-const SCREENS = ['loading', 'title', 'select', 'hud', 'cards', 'talk', 'pause', 'result', 'wait', 'tip'];
+const SCREENS = ['op', 'loading', 'title', 'select', 'hud', 'cards', 'talk', 'pause', 'result', 'wait', 'tip'];
 function show(...ids) { for (const s of SCREENS) $(s).classList.toggle('hide', !ids.includes(s)); }
 
 function goTitle() {
   mode = 'title'; story = true;
   S = CORE.create(0, { seed: 7, vw: view.w, vh: view.h });
-  S.p.x = 1.5 * D.ROOM.W; CORE.updCam(S, 1);
-  show('title'); SND.music('title');
+  S.p.x = 1.5 * D.ROOM.W; S.camDy = view.h * 0.14; CORE.updCam(S, 1);
+  show('title'); SND.music('song');
   const run = loadRun(), bc = $('bContinue');
   bc.classList.toggle('hide', !run);
   if (run) bc.innerHTML = `繼續<small>第 ${run.li + 1} 關・${fmt(run.t)}</small>`;
@@ -130,6 +130,40 @@ function fullscreen() {
   if (!document.fullscreenElement && el.requestFullscreen && !/iPhone|iPad|iPod/.test(navigator.userAgent)) el.requestFullscreen().catch(() => {});
 }
 
+// ---------- 片頭：約 6 秒，跟歌對拍（1.6 秒南瓜仔衝出來、3.24 秒片名砸下來），點一下或「跳過」直接到標題 ----------
+const OP = { hit: 1.58, slam: 3.24, sub: 3.9, end: 6.4 };
+let opT = 0, opCam = null, opStep = 0;
+function startOP() {
+  mode = 'op'; story = true; opT = 0; opStep = 0;
+  S = CORE.create(0, { seed: 7, vw: view.w, vh: view.h });
+  S.p.x = 1.5 * D.ROOM.W; S.camDy = view.h * 0.14; CORE.updCam(S, 1);
+  opCam = { x: S.cam.x, y: S.cam.y };
+  $('op').className = 'screen';
+  show('op');
+  SND.music('song', { restart: true });
+}
+function stepOP(dt) {
+  const st = SND.songTime();
+  opT = st > 0.05 && Math.abs(st - opT) < 1 ? st : opT + dt;   // 有聲音就跟歌的時間走
+  const k = Math.min(1, opT / 3.0), e = 1 - Math.pow(1 - k, 3);
+  S.cam.x = opCam.x; S.cam.y = opCam.y - 1100 * (1 - e);   // 從夜空往下搖到校舍
+  const op = $('op');
+  if (opStep === 0 && opT > 0.25) { opStep = 1; op.classList.add('line'); }
+  if (opStep === 1 && opT >= OP.hit) {   // 南瓜仔、蝙蝠衝過去
+    opStep = 2; R.events(S, [{ k: 'flash' }]);
+    const M = D.MONS;
+    for (let i = 0; i < 12; i++) S.mons.push({ id: -i - 1, k: 'pumpkin', d: M.pumpkin, r: M.pumpkin.r, x: opCam.x - view.w / 2 - 60 - i * 52, y: -M.pumpkin.r - (i % 3) * 18, f: 0, face: 1, ph: i * 1.7, cl: null, stun: 0, flash: 0, hp: 1, max: 1, vx: 260 + (i % 4) * 20 });
+    for (let i = 0; i < 6; i++) S.mons.push({ id: -100 - i, k: 'bat', d: M.bat, r: M.bat.r, x: opCam.x + view.w / 2 + 60 + i * 70, y: -560 - (i % 3) * 70, f: 1, face: -1, ph: i, cl: null, stun: 0, flash: 0, hp: 1, max: 1, vx: -320 });
+  }
+  for (const m of S.mons) m.x += m.vx * dt;
+  if (opStep === 2 && opT >= OP.slam) { opStep = 3; op.classList.add('slam'); R.events(S, [{ k: 'boom' }, { k: 'flash' }]); }
+  if (opStep === 3 && opT >= OP.sub) { opStep = 4; op.classList.add('sub'); }
+  if (opT >= OP.end) endOP();
+}
+function endOP() { if (mode !== 'op') return; S.mons.length = 0; goTitle(); }
+$('opSkip').addEventListener('click', (e) => { e.stopPropagation(); endOP(); });
+$('op').addEventListener('pointerdown', (e) => { if (e.target.id !== 'opSkip' && opT > 0.4) endOP(); });
+
 // ---------- 開始一關 ----------
 function startLevel(i) {
   li = i; fullscreen(); clearRun();
@@ -149,11 +183,11 @@ function continueRun() {
   li = o.li; S = CORE.restore(o, { vw: view.w, vh: view.h }); acc = 0; joy.id = null; joy.on = false;
   $('slots').innerHTML = S.items.map((it) => `<div class="slot${it.got ? ' got' : ''}"><i style="${iconPos(D.ITEMS[it.k].icon)}"></i></div>`).join('');
   story = false; SND.urgent(S.exit.open || !!S.boss);
-  mode = 'play'; show('hud'); SND.music('play');
+  mode = 'play'; show('hud'); SND.music('song');
   tip(`接著上次：第 ${li + 1} 關・${S.L.name}`, 2.6);
 }
 function begin() {
-  mode = 'play'; show('hud'); SND.music('play');
+  mode = 'play'; show('hud'); SND.music('song');
   if (li === 0) tip('手指按住畫面拖曳就能走；走到梯子往上推就會爬', 6);
   else tip(`找到 ${S.items.map((it) => D.ITEMS[it.k].name).join('、')}`, 4);
 }
@@ -348,7 +382,8 @@ function frame(now) {
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = Math.max(last, now); T += dt;
   if (!S || !HERO.isReady()) return;
   S.camDy = story ? view.h * 0.14 : 0;
-  if (story) CORE.updCam(S, Math.min(1, dt * 5));
+  if (mode === 'op') stepOP(dt);
+  else if (story) CORE.updCam(S, Math.min(1, dt * 5));
   if (mode === 'play') {
     S.input = readInput();
     acc += dt;
@@ -384,7 +419,7 @@ function frame(now) {
   const h = S.helper;
   if (h && !story) HERO.update(h.ph === 'fight' ? 'needle' : 'zhang', dt, T, { speed: h.ph === 'calm' ? h.moving / 120 : 0, face: h.face, front: h.ph !== 'calm' || h.moving < 5 });
   R.draw(S, { t: T, dt, joy: mode === 'play' && joy.on ? toUi(joy) : null, npcs: vis, story: story || mode !== 'play' });
-  if (S && mode !== 'title' && mode !== 'select' && mode !== 'loading') hud();
+  if (S && !['title', 'select', 'loading', 'op', 'enter'].includes(mode)) hud();
   if (mode === 'play' && S.t - lastRunSave >= 5) saveRun();
 }
 const toUi = (j) => ({ bx: j.bx, by: j.by, x: j.bx + Math.max(-54, Math.min(54, j.x - j.bx)), y: j.by + Math.max(-54, Math.min(54, j.y - j.by)) });
@@ -393,6 +428,8 @@ const toUi = (j) => ({ bx: j.bx, by: j.by, x: j.bx + Math.max(-54, Math.min(54, 
 $('bStart').onclick = () => { SND.play('tap'); const n = D.LEVELS.findIndex((_, i) => save.best[i] == null); startLevel(n < 0 ? 0 : n); };
 $('bSelect').onclick = () => { SND.play('tap'); goSelect(); };
 $('bContinue').onclick = () => { SND.play('tap'); continueRun(); };
+$('bOP').onclick = () => startOP();
+$('bEnter').onclick = () => { SND.unlock(); fullscreen(); startOP(); };
 $('bBack').onclick = () => { SND.play('tap'); goTitle(); };
 
 async function boot() {
@@ -403,7 +440,14 @@ async function boot() {
     await Promise.all([HERO.init(tick), R.loadImages(tick)]);
   } catch (e) { console.error(e); $('ldText').textContent = '載入失敗，請重新整理'; return; }
   HERO_ICON = HERO.snapshot('needle');
-  goTitle();
+  // 瀏覽器要先點一下才給出聲：載入完先停在「點一下開始」，點了才播片頭＋配樂（測試 ?bot、?noop 直接到標題）
+  if (BOT_ON || /[?&]noop/.test(location.search)) goTitle();
+  else {
+    mode = 'enter';
+    $('ldText').classList.add('hide'); $('ldBar').parentNode.classList.add('hide');
+    $('bEnter').classList.remove('hide'); $('ldNote').classList.remove('hide');
+    S = CORE.create(0, { seed: 7, vw: view.w, vh: view.h });
+  }
   requestAnimationFrame(loop);
 }
 boot();
