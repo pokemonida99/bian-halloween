@@ -176,7 +176,7 @@
   function spawn(S, k, x, y, f) {
     const d = D.MONS[k];
     const hpMul = 1 + S.t / 75 + S.li * 0.32;   // 越後面越耐打（武器也一直升級）
-    const m = { id: S.nid++, k, d, x, y, f, vy: 0, vx: 0, r: d.r, hp: d.hp * (d.boss ? 1 : hpMul), max: 0, spd: d.spd * (0.9 + S.rng() * 0.2),
+    const m = { id: S.nid++, k, d, x, y, f, vy: 0, vx: 0, r: d.r, hp: d.hp * (d.boss ? 1 : hpMul * (S.hard ? D.HARD.hp : 1)), max: 0, spd: d.spd * (0.9 + S.rng() * 0.2),
       cl: null, conn: null, connT: 0, hitCd: 0, stun: 0, slow: 0, flash: 0, face: 1, ph: S.rng() * 6.28, dead: false, age: 0 };
     m.max = m.hp;
     S.mons.push(m);
@@ -213,7 +213,7 @@
     const w = S.L.waves;
     const alive = S.mons.length;
     const H = S.hard ? D.HARD : null;
-    const rate = (w.rate + w.grow * S.t / 60) * (H ? H.spawn : 1), cap = w.cap * (H ? H.cap : 1);
+    const rate = (w.rate + w.grow * S.t / 60) * (H ? H.spawn : 1), cap = capOf(S);
     S.spawnAcc += rate * dt;
     // 一次生一小群（同種、同一個地方）
     const pack = Math.min(6, 2 + Math.floor(S.t / 40));
@@ -228,7 +228,11 @@
     S.hordeT -= dt;
     if (S.hordeT <= 0) { S.hordeT = w.horde; horde(S, Math.round((w.hordeN + Math.floor(S.t / 60) * 4) * (H ? H.horde : 1))); }
   }
+  // 同時在場上限（大群也算進去，手機才不會卡）
+  const capOf = (S) => S.L.waves.cap * (S.hard ? D.HARD.cap : 1);
   function horde(S, n, label) {
+    n = Math.min(n, Math.max(0, Math.round(capOf(S)) - S.mons.length));
+    if (!n && !label) return;
     const pf = pFloor(S);
     const side = S.p.x > S.Wt / 2 ? -1 : 1;   // 從比較遠的那邊來
     let x = side < 0 ? 20 : S.Wt - 20;
@@ -257,7 +261,7 @@
       const spd = m.spd * slow;
       if (m.d.summon) {   // 魔王每 6 秒叫 3 隻小弟
         m.sumT = (m.sumT ?? 3) - dt;
-        if (m.sumT <= 0 && S.mons.length < S.L.waves.cap * (S.hard ? D.HARD.cap : 1)) { m.sumT = 7; for (let i = 0; i < 3; i++) spawn(S, m.d.summon, m.x + (i - 1) * 60, m.y - 40, m.f); S.ev.push({ k: 'summon', x: m.x, y: m.y }); }
+        if (m.sumT <= 0 && S.mons.length < capOf(S)) { m.sumT = 7; for (let i = 0; i < 3; i++) spawn(S, m.d.summon, m.x + (i - 1) * 60, m.y - 40, m.f); S.ev.push({ k: 'summon', x: m.x, y: m.y }); }
       }
       if (m.d.fly) {
         // 會飛的：直接飛向小編（蝙蝠繞來繞去、床單鬼慢慢飄）
