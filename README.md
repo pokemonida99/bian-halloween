@@ -18,6 +18,13 @@
 - 第 2 關：拿齊 3 樣後，**床單鬼王**出現在撤離點（會穿牆、每 7 秒叫 3 隻床單鬼），打倒才開始撤離倒數 20 秒；第 5 關的南瓜大王還是在頂樓（`LEVELS[].boss = { k, at: 'exit' | 'roof' }`）
 - **存檔與選關**：選關每一關都能直接玩（過關的會標「過關・最快幾分」）；打到一半每 5 秒自動存、暫停回選單或跳出 App 也會存，標題畫面按「繼續」接著玩（localStorage `bian-halloween-run`，過關、失敗、重來就清掉）；過關紀錄在 `bian-halloween`
 
+## 分享縮圖（v1.3.1）
+
+- 分享連結時的預覽圖：`og-landscape.jpg`（橫板 1200×630，`index.html` 的 `og:image`／`twitter:image` 指向它）；直板 `og-portrait.jpg`（1080×1920，給限時動態、直式貼文手動用）：https://pokemonida99.github.io/bian-halloween/og-portrait.jpg
+- 主視覺 GPT 畫（`zsh tools/thumbs.sh [h|v]`）：照角色參考表 `work/thumb/ref.png`（籃球遊戲的小編、兔兔老師、校長、針筒超人正面三視圖＋南瓜仔）畫，標題字留空；第一次橫板小編紙袋上的「编」被畫成塗鴉，提示詞加了「照參考表一模一樣」才對
+- 標題、副標題用程式疊（`python3 tools/thumb.py`）：遊戲的粉筆標題字＋霞鶩文楷 TC（字型檔 `work/thumb/wenkai-bold.ttf` 從 Google Fonts 下載，不進 git）
+- 換了縮圖要把 `og:image` 的 `?v=` 加一，Facebook、LINE 會快取舊圖（Facebook 可用「分享偵錯工具」重新抓）
+
 ## 片頭與配樂（v1.2）
 
 - 配樂是使用者給的歌（Suno 做的純音樂，原檔 Opus，iPhone 不一定能播，轉成 AAC 128k、剪掉開頭 0.35 秒靜音 → `music/bgm.m4a`）
