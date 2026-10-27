@@ -1,5 +1,5 @@
 // 2D 畫面：夜空、校舍剖面（教室、樓板、梯子）、怪物群、武器特效、傷害數字、指路箭頭；小編由 hero.js 的 3D 貼上來
-import * as HERO from './hero.js?v=4';
+import * as HERO from './hero.js?v=5';
 
 const CORE = window.CORE, D = window.DATA;
 const { W, H, T } = D.ROOM;
@@ -13,7 +13,7 @@ export function loadImages(tick) {
     ...['class', 'lab', 'library', 'nurse', 'music', 'gym', 'office', 'hall', 'roof'].map((n) => 'room-' + n)];
   return Promise.all(names.map((n) => new Promise((res) => {
     const im = new Image(); im.onload = () => { IMG[n] = im; tick(); res(); }; im.onerror = () => { tick(); res(); };
-    im.src = `art/${n}.webp?v=4`;
+    im.src = `art/${n}.webp?v=5`;
   }))).then(() => {
     // 怪物的白色、藍色、橘色剪影（被打閃白、被冰變藍、被燙變橘）
     for (const k of ['m-pumpkin', 'm-ghost', 'm-bat', 'm-mummy', 'm-boss', 'm-ghostboss']) {

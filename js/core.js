@@ -20,7 +20,7 @@
     for (let f = 0; f < F; f++) rooms.push(L.rooms[F - 1 - f].split(' '));
     const at = ([f, c]) => ({ f, x: c * W, y: floorY(f) });
     const S = {
-      li, L, F, C, Wt: C * W, rooms, t: 0, rs: ((opt.seed ?? (Date.now() & 0xffffff)) >>> 0) || 1,
+      li, L, F, C, Wt: C * W, rooms, t: 0, hard: !!opt.hard, rs: ((opt.seed ?? (Date.now() & 0xffffff)) >>> 0) || 1,
       view: { w: opt.vw ?? 720, h: opt.vh ?? 1280 }, cam: { x: 0, y: 0 },
       input: { x: 0, y: 0 }, state: 'play', ev: [],
       ladders: L.ladders.map(([f, c]) => ({ f, x: c * W })),
@@ -33,13 +33,16 @@
     };
     S.rng = mkRng(S);
     const st = at(L.start);
-    S.p = { x: st.x, y: st.y, f: st.f, lad: null, face: 1, hp: D.PLAYER.hp, max: D.PLAYER.hp, lv: 1, xp: 0, need: D.needXp(1),
+    S.p = { x: st.x, y: st.y, f: st.f, lad: null, face: 1, hp: D.PLAYER.hp, max: D.PLAYER.hp, lv: 1, xp: 0, need: 0,
       shield: 0, shieldT: 0, hurtT: 0, inv: 0, moving: 0, vx: 0, glowA: 0 };
+    S.p.need = need(S, 1);
     S.chestPick = 1 + li;   // 開場先選武器（後面的關卡多送幾張，怪也比較強）
     updCam(S, 1);
     return S;
   }
 
+  // 升到下一級要幾顆糖（困難版比較多）
+  const need = (S, lv) => Math.round(D.needXp(lv) * (S.hard ? D.HARD.xp : 1));
   // 技能目前等級的數值
   const sv = (S, k) => S.sk[k] ? D.SKILLS[k].lv[S.sk[k] - 1] : null;
   const cdMul = (S) => sv(S, 'clock')?.m ?? 1;
@@ -209,20 +212,21 @@
   function stepSpawn(S, dt) {
     const w = S.L.waves;
     const alive = S.mons.length;
-    const rate = w.rate + w.grow * S.t / 60;
+    const H = S.hard ? D.HARD : null;
+    const rate = (w.rate + w.grow * S.t / 60) * (H ? H.spawn : 1), cap = w.cap * (H ? H.cap : 1);
     S.spawnAcc += rate * dt;
     // 一次生一小群（同種、同一個地方）
     const pack = Math.min(6, 2 + Math.floor(S.t / 40));
     while (S.spawnAcc >= pack) {
       S.spawnAcc -= pack;
-      if (alive >= w.cap) continue;
+      if (alive >= cap) continue;
       const k = pickType(S, w.mix), sp = spawnPoint(S, D.MONS[k].fly);
       const n = k === 'mummy' ? Math.ceil(pack / 3) : pack;
       for (let i = 0; i < n; i++) { const m = spawn(S, k, sp.x + (S.rng() - 0.5) * 60, sp.y - i * 8, sp.f); m.stun = i * 0.12; }
     }
     // 大群：從一邊整群湧進來
     S.hordeT -= dt;
-    if (S.hordeT <= 0) { S.hordeT = w.horde; horde(S, w.hordeN + Math.floor(S.t / 60) * 4); }
+    if (S.hordeT <= 0) { S.hordeT = w.horde; horde(S, Math.round((w.hordeN + Math.floor(S.t / 60) * 4) * (H ? H.horde : 1))); }
   }
   function horde(S, n, label) {
     const pf = pFloor(S);
@@ -253,7 +257,7 @@
       const spd = m.spd * slow;
       if (m.d.summon) {   // 魔王每 6 秒叫 3 隻小弟
         m.sumT = (m.sumT ?? 3) - dt;
-        if (m.sumT <= 0 && S.mons.length < S.L.waves.cap) { m.sumT = 7; for (let i = 0; i < 3; i++) spawn(S, m.d.summon, m.x + (i - 1) * 60, m.y - 40, m.f); S.ev.push({ k: 'summon', x: m.x, y: m.y }); }
+        if (m.sumT <= 0 && S.mons.length < S.L.waves.cap * (S.hard ? D.HARD.cap : 1)) { m.sumT = 7; for (let i = 0; i < 3; i++) spawn(S, m.d.summon, m.x + (i - 1) * 60, m.y - 40, m.f); S.ev.push({ k: 'summon', x: m.x, y: m.y }); }
       }
       if (m.d.fly) {
         // 會飛的：直接飛向小編（蝙蝠繞來繞去、床單鬼慢慢飄）
@@ -678,7 +682,7 @@
       horde(S, B.at === 'exit' ? 12 : 30, 'boss');
     } else {
       openExit(S);
-      horde(S, S.L.waves.hordeN + 10, 'last');
+      horde(S, Math.round((S.L.waves.hordeN + 10) * (S.hard ? D.HARD.horde : 1)), 'last');
     }
   }
   function openExit(S) { S.exit.open = true; S.ev.push({ k: 'exit' }); }
@@ -686,7 +690,7 @@
   function gainXp(S, n) {
     const p = S.p;
     p.xp += n * (sv(S, 'magnet')?.m ?? 1);
-    while (p.xp >= p.need) { p.xp -= p.need; p.lv++; p.need = D.needXp(p.lv); S.pending++; S.ev.push({ k: 'lvup' }); }
+    while (p.xp >= p.need) { p.xp -= p.need; p.lv++; p.need = need(S, p.lv); S.pending++; S.ev.push({ k: 'lvup' }); }
   }
 
   // ---------- 升級三選一 ----------
@@ -700,6 +704,7 @@
       const sk = D.SKILLS[k], own = !!S.sk[k];
       let w = (own ? 1.6 : 1) * (sk.kind === 'w' ? 1.15 : 0.85) * (sk.rare ? D.RARE[sk.rare].w : 1);
       if (k === 'bento' && S.p.hp < S.p.max * 0.5) w *= 2.5;
+      if (k === 'hero' && !own) w *= 1.8;   // 針筒超人：稀有但不要太難遇到
       if (full && sk.kind === 'w' && !own) w *= 0.45;   // 帶滿了：新武器少出現一點
       return { k, w };
     });
@@ -743,8 +748,12 @@
     if (S.state !== 'play') return;
     // 有升級或寶箱就先暫停選卡
     if (S.pending > 0 || S.chestPick > 0) {
+      const chest = S.chestPick > 0 && S.t > 0;
       if (S.chestPick > 0) S.chestPick--; else S.pending--;
-      S.offer = makeOffer(S); S.state = 'pick'; S.ev.push({ k: 'offer' });
+      S.offer = makeOffer(S);
+      // 每關第一個南瓜寶箱：還沒有針筒超人就一定有這張
+      if (chest && !S.heroOffered && !S.sk.hero) { S.heroOffered = true; if (!S.offer.includes('hero')) S.offer[(S.rng() * S.offer.length) | 0] = 'hero'; }
+      S.state = 'pick'; S.ev.push({ k: 'offer' });
       return;
     }
     S.t += dt;
@@ -762,18 +771,18 @@
   function serialize(S) {
     const pick = (o, ks) => { const r = {}; for (const k of ks) r[k] = o[k]; return r; };
     return {
-      v: 1, li: S.li, t: S.t, rs: S.rs, p: { ...S.p }, sk: { ...S.sk }, tm: { ...S.tm },
+      v: 1, li: S.li, hard: S.hard, t: S.t, rs: S.rs, p: { ...S.p }, sk: { ...S.sk }, tm: { ...S.tm },
       items: S.items.map((i) => [i.got, i.prog]), chests: S.chests.map((c) => c.open), exit: pick(S.exit, ['open', 'left']),
       mons: S.mons.filter((m) => !m.dead).map((m) => pick(m, MKEYS)), boss: S.boss ? S.boss.id : null,
       gems: S.gems.slice(-150).map((g) => pick(g, ['x', 'y', 'fy', 'v', 'heart', 'big'])),
       pools: S.pools.map((p) => ({ ...p })), buddies: S.buddies.map((b) => ({ ...b, st: 'orbit' })),
       helper: S.helper ? { ...S.helper, tg: null } : null,
-      pending: S.pending + (S.offer ? 1 : 0), chestPick: S.chestPick, spawnAcc: S.spawnAcc, hordeT: S.hordeT, kills: S.kills, nid: S.nid, heroSeen: S.heroSeen,
+      pending: S.pending + (S.offer ? 1 : 0), chestPick: S.chestPick, spawnAcc: S.spawnAcc, hordeT: S.hordeT, kills: S.kills, nid: S.nid, heroSeen: S.heroSeen, heroOffered: S.heroOffered,
     };
   }
   function restore(o, opt = {}) {
-    const S = create(o.li, { seed: 1, ...opt });
-    Object.assign(S, { t: o.t, rs: o.rs, sk: o.sk, tm: o.tm, pending: o.pending, chestPick: o.chestPick, spawnAcc: o.spawnAcc, hordeT: o.hordeT, kills: o.kills, nid: o.nid, heroSeen: o.heroSeen });
+    const S = create(o.li, { seed: 1, ...opt, hard: !!o.hard });
+    Object.assign(S, { t: o.t, rs: o.rs, sk: o.sk, tm: o.tm, pending: o.pending, chestPick: o.chestPick, spawnAcc: o.spawnAcc, hordeT: o.hordeT, kills: o.kills, nid: o.nid, heroSeen: o.heroSeen, heroOffered: o.heroOffered });
     Object.assign(S.p, o.p);
     o.items.forEach(([got, prog], i) => { S.items[i].got = got; S.items[i].prog = prog; });
     o.chests.forEach((open, i) => { S.chests[i].open = open; });

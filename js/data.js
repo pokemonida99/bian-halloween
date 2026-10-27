@@ -80,6 +80,8 @@
       desc: ['所有武器快 8%', '快 15%', '快 21%', '快 27%', '快 34%'] },
   };
   const MAXLV = 5;
+  // 困難版：怪物量變多（生怪速度、同時上限、大群人數），升級要的糖果變多
+  const HARD = { spawn: 1.4, cap: 1.25, horde: 1.35, xp: 1.3 };
   const MAXW = 5;   // 武器最多同時帶 5 種，第 6 種要丟掉一種或放棄
   const RARE = { 1: { name: '普通', w: 1 }, 2: { name: '稀有', w: 0.6 }, 3: { name: '史詩', w: 0.35 } };
 
@@ -155,5 +157,5 @@
 
   const NAMES = { bian: '小編', tu: '兔兔老師', zhang: '校長' };
 
-  G.DATA = { ROOM, PLAYER, needXp, MONS, SKILLS, MAXLV, MAXW, RARE, HERO_LINES, ITEMS, CHEST_ICON, LEVELS, STORY, NAMES };
+  G.DATA = { ROOM, PLAYER, needXp, MONS, SKILLS, MAXLV, HARD, MAXW, RARE, HERO_LINES, ITEMS, CHEST_ICON, LEVELS, STORY, NAMES };
 })(typeof window !== 'undefined' ? window : globalThis);

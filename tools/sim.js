@@ -1,5 +1,5 @@
 // 自動遊玩機器人：每關跑多個亂數種子，看通關率、花多久、幾級（改 data.js 數值後跑）
-// node tools/sim.js [關卡 1～5] ；SEEDS=20 加測；PICK=random 亂選卡（預設照常見玩法挑）
+// node tools/sim.js [關卡 1～5] ；SEEDS=20 加測；PICK=random 亂選卡（預設照常見玩法挑）；HARD=1 困難版
 require('../js/data.js'); require('../js/core.js'); require('../js/bot.js');
 const { CORE, DATA, BOT: botInput } = globalThis;
 const SEEDS = +(process.env.SEEDS || 8);
@@ -7,7 +7,7 @@ const only = process.argv[2] ? [+process.argv[2] - 1] : DATA.LEVELS.map((_, i) =
 const PREF = ['glow', 'hero', 'hoop', 'ball', 'candy', 'flute', 'bomb', 'thunder', 'flash', 'beam', 'buddy', 'brew', 'cape', 'bento', 'frost', 'shoe', 'magnet', 'clock'];
 
 function run(li, seed) {
-  const S = CORE.create(li, { seed: seed * 7919 + 13 });
+  const S = CORE.create(li, { seed: seed * 7919 + 13, hard: !!process.env.HARD });
   const dt = 1 / 60;
   let picks = [];
   while (S.t < 600) {

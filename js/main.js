@@ -1,6 +1,6 @@
 // 主程式：畫面切換、搖桿、遊戲迴圈、上方資訊、升級卡、劇情對話、存檔
-import * as HERO from './hero.js?v=4';
-import * as R from './render.js?v=4';
+import * as HERO from './hero.js?v=5';
+import * as R from './render.js?v=5';
 
 const CORE = window.CORE, D = window.DATA, SND = window.SND;
 const $ = (id) => document.getElementById(id);
@@ -15,8 +15,9 @@ if (BOT_ON) { const sc = document.createElement('script'); sc.src = 'js/bot.js';
 
 // ---------- 存檔 ----------
 const SAVE_KEY = 'bian-halloween';
-let save = { open: 1, best: {} };
-try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.open) save = s; } catch (e) {}
+let save = { open: 1, best: {}, bestH: {}, hard: false };   // best：一般版最快、bestH：困難版最快
+try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && s.open) save = { ...save, ...s, bestH: s.bestH || {} }; } catch (e) {}
+const bestOf = () => (save.hard ? save.bestH : save.best);
 const persist = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} };
 // 打到一半的存檔：每 5 秒、暫停、跳出遊戲時存；過關、失敗、重來就清掉
 const RUN_KEY = 'bian-halloween-run';
@@ -99,31 +100,42 @@ function goTitle() {
   mode = 'title'; story = true;
   S = CORE.create(0, { seed: 7, vw: view.w, vh: view.h });
   S.p.x = 1.5 * D.ROOM.W; S.camDy = view.h * 0.14; CORE.updCam(S, 1);
-  show('title'); SND.music('song');
+  show('title'); SND.music('song'); syncDiff();
   const run = loadRun(), bc = $('bContinue');
   bc.classList.toggle('hide', !run);
-  if (run) bc.innerHTML = `繼續<small>第 ${run.li + 1} 關・${fmt(run.t)}</small>`;
+  if (run) bc.innerHTML = `繼續<small>第 ${run.li + 1} 關${run.hard ? '・困難' : ''}・${fmt(run.t)}</small>`;
   $('bStart').textContent = run ? '重新開始' : '開始';
   $('bStart').classList.toggle('big', !run);
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) && !navigator.standalone;
   $('iosTip').classList.toggle('hide', !ios);
 }
 function goSelect() {
-  mode = 'select'; show('select');
+  mode = 'select'; show('select'); syncDiff();
   const box = $('levels'); box.innerHTML = '';
   D.LEVELS.forEach((L, i) => {
-    const b = document.createElement('button'); b.className = 'lvc' + (save.best[i] != null ? ' done' : '');
+    const best0 = bestOf()[i];
+    const b = document.createElement('button'); b.className = 'lvc' + (best0 != null ? ' done' : '');
     b.style.setProperty('--r', ((i % 2 ? 1 : -1) * 0.6) + 'deg');
     const its = L.items.map(([k]) => `<i style="${iconPos(D.ITEMS[k].icon)}"></i>`).join('');
-    const best = save.best[i] != null ? `<span class="best">過關・最快 ${fmt(save.best[i])}</span>` : '';
+    const best = best0 != null ? `<span class="best">${save.hard ? '困難' : ''}過關・最快 ${fmt(best0)}</span>` : '';
     b.innerHTML = `<span class="n">${i + 1}</span><span class="t"><b>${L.name}</b><span>${L.sub}</span></span><span class="its">${its}</span>${best}`;
     b.onclick = () => { SND.play('tap'); startLevel(i); };
     box.appendChild(b);
   });
 }
 let HERO_ICON = '';   // 針筒超人的卡片圖示：載入後用 3D 模型拍一張
+// 難度切換（標題、選關都有，選了就記住）
+const DIFF_NOTE = () => `困難：怪物多約 ${Math.round((D.HARD.spawn - 1) * 100)}%、升級要的糖果多 ${Math.round((D.HARD.xp - 1) * 100)}%`;
+function syncDiff() {
+  for (const id of ['diffT', 'diffS']) for (const b of $(id).querySelectorAll('button')) b.classList.toggle('on', (b.dataset.h === '1') === !!save.hard);
+  $('diffNote').textContent = DIFF_NOTE();
+}
+for (const id of ['diffT', 'diffS']) for (const b of $(id).querySelectorAll('button')) b.onclick = () => {
+  save.hard = b.dataset.h === '1'; persist(); SND.play('tap'); syncDiff();
+  if (mode === 'select') goSelect();
+};
 const iconPos = (i) => i === 'hero' ? `background-image:url(${HERO_ICON});background-size:contain;background-position:center`
-  : i >= 100 ? `background-image:url(art/skills2.webp?v=4);background-position:${((i - 100) % 4) * 33.333}% ${((i - 100) >> 2) * 33.333}%`
+  : i >= 100 ? `background-image:url(art/skills2.webp?v=5);background-position:${((i - 100) % 4) * 33.333}% ${((i - 100) >> 2) * 33.333}%`
   : `background-position:${(i % 4) * 33.333}% ${(i >> 2) * 33.333}%`;
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -169,7 +181,8 @@ $('op').addEventListener('pointerdown', (e) => { if (e.target.id !== 'opSkip' &&
 // ---------- 開始一關 ----------
 function startLevel(i) {
   li = i; fullscreen(); clearRun();
-  S = CORE.create(i, { vw: view.w, vh: view.h });
+  S = CORE.create(i, { vw: view.w, vh: view.h, hard: !!save.hard });
+  $('modeTag').classList.toggle('hide', !S.hard);
   acc = 0; joy.id = null; joy.on = false;
   // 槽位
   $('slots').innerHTML = S.items.map((it) => `<div class="slot"><i style="${iconPos(D.ITEMS[it.k].icon)}"></i></div>`).join('');
@@ -183,6 +196,7 @@ function continueRun() {
   const o = loadRun(); if (!o) { startLevel(0); return; }
   fullscreen();
   li = o.li; S = CORE.restore(o, { vw: view.w, vh: view.h }); acc = 0; joy.id = null; joy.on = false;
+  $('modeTag').classList.toggle('hide', !S.hard);
   $('slots').innerHTML = S.items.map((it) => `<div class="slot${it.got ? ' got' : ''}"><i style="${iconPos(D.ITEMS[it.k].icon)}"></i></div>`).join('');
   story = false; SND.urgent(S.exit.open || !!S.boss);
   mode = 'play'; show('hud'); SND.music('song');
@@ -307,7 +321,8 @@ function cleared() {
   SND.urgent(false); SND.music(null);
   HERO.act('bian', 'sig_bian', true);
   const t = S.t;
-  if (save.best[li] == null || t < save.best[li]) save.best[li] = t;
+  const B = S.hard ? save.bestH : save.best;
+  if (B[li] == null || t < B[li]) B[li] = t;
   save.open = Math.max(save.open, Math.min(D.LEVELS.length, li + 2));
   persist();
   setTimeout(() => {
@@ -327,7 +342,7 @@ function result(win) {
   const r = $('result'); r.classList.toggle('lose', !win);
   const d = new Date(); $('rDate').textContent = `${d.getMonth() + 1} 月 ${d.getDate()} 日　第 ${li + 1} 關`;
   const got = S.items.filter((i) => i.got).length;
-  $('rTitle').textContent = win ? '過關！' : '挑戰失敗';
+  $('rTitle').textContent = (win ? '過關！' : '挑戰失敗') + (S.hard ? '（困難）' : '');
   $('rStats').innerHTML = `<li>撐了 <b>${fmt(S.t)}</b></li><li>擊倒 <b>${S.kills}</b> 隻</li><li>拿到 <b>${got}/3</b> 樣東西・Lv <b>${S.p.lv}</b></li>`;
   const last = li === D.LEVELS.length - 1;
   $('rLine').textContent = win ? (last ? '萬聖節晚會開始囉！全部路線都走完了。' : '老師評語：小編今天很努力，可以下班了（還不行）。') : got < 3 ? '再來一次！先挑能打一整圈的武器會比較好過。' : '東西都拿到了，差一點！撤離時記得一直走位。';
@@ -461,7 +476,7 @@ function frame(now) {
 const toUi = (j) => ({ bx: j.bx, by: j.by, x: j.bx + Math.max(-54, Math.min(54, j.x - j.bx)), y: j.by + Math.max(-54, Math.min(54, j.y - j.by)) });
 
 // ---------- 開機 ----------
-$('bStart').onclick = () => { SND.play('tap'); const n = D.LEVELS.findIndex((_, i) => save.best[i] == null); startLevel(n < 0 ? 0 : n); };
+$('bStart').onclick = () => { SND.play('tap'); const n = D.LEVELS.findIndex((_, i) => bestOf()[i] == null); startLevel(n < 0 ? 0 : n); };
 $('bSelect').onclick = () => { SND.play('tap'); goSelect(); };
 $('bContinue').onclick = () => { SND.play('tap'); continueRun(); };
 $('bOP').onclick = () => startOP();

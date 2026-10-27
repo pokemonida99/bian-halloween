@@ -8,7 +8,7 @@
   const lastAt = {};
   let want = null, cur = null, urgent = 0;
   // 歌：用 <audio> 播（不用整首解碼進記憶體），接進 WebAudio 才吃得到靜音與音量
-  const song = new Audio('music/bgm.m4a?v=4'); song.loop = true; song.preload = 'auto';
+  const song = new Audio('music/bgm.m4a?v=5'); song.loop = true; song.preload = 'auto';
   let songOk = true, songNode = null, songBus = null;
   song.addEventListener('error', () => { songOk = false; if (cur === 'song') { cur = null; startMusic('song'); } });
 

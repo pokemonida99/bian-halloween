@@ -57,7 +57,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 /* 三樣要拿的東西：沒拿到是暗的、打紅叉 */
 .slots { flex: 1; display: flex; justify-content: center; gap: 10px; }
 .slot { position: relative; width: 82px; height: 82px; background: rgba(16, 23, 34, .72); border: 3px solid rgba(244, 240, 227, .35); }
-.slot i { position: absolute; inset: 6px; background: url(art/items.webp?v=4) 0 0 / 400% 400% no-repeat; filter: grayscale(.85) brightness(.55); }
+.slot i { position: absolute; inset: 6px; background: url(art/items.webp?v=5) 0 0 / 400% 400% no-repeat; filter: grayscale(.85) brightness(.55); }
 .slot::after { content: ""; position: absolute; right: -6px; bottom: -6px; width: 30px; height: 30px;
   background: linear-gradient(45deg, transparent 42%, #e8443a 42% 58%, transparent 58%), linear-gradient(-45deg, transparent 42%, #e8443a 42% 58%, transparent 58%); }
 .slot.got { border-color: var(--chalk-y); background: rgba(80, 52, 14, .75); }
@@ -94,7 +94,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .card { position: relative; flex: 1; min-width: 0; height: 360px; padding: 18px 10px 12px; display: flex; flex-direction: column; align-items: center; text-align: center;
   background: url(art/ui-paper.webp) left top / 240px auto; color: var(--pencil); box-shadow: 3px 8px 8px rgba(0, 0, 0, .5); transform: rotate(var(--r, 0deg)); }
 .card::before { content: ""; position: absolute; left: 50%; top: -12px; width: 78px; height: 24px; margin-left: -39px; background: rgba(240, 138, 36, .82); transform: rotate(-3deg); }   /* 南瓜色紙膠帶 */
-.card .ic { width: 112px; height: 112px; background: url(art/skills.webp?v=4) 0 0 / 400% 400% no-repeat; }
+.card .ic { width: 112px; height: 112px; background: url(art/skills.webp?v=5) 0 0 / 400% 400% no-repeat; }
 .card b { margin-top: 8px; font-size: 32px; font-weight: 700; line-height: 1.15; }
 .card .lvl { margin-top: 6px; display: flex; gap: 5px; }
 .card .lvl i { width: 18px; height: 18px; border: 2px solid var(--pumpkin-d); transform: rotate(45deg); }
@@ -121,7 +121,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 #pause .panel { width: 520px; padding: 28px 30px 34px; display: flex; flex-direction: column; gap: 14px; align-items: stretch; border-width: 24px; border-image-width: 24px; filter: drop-shadow(0 8px 6px rgba(0, 0, 0, .5)); }
 #pause h2 { text-align: center; font-size: 52px; letter-spacing: .3em; color: var(--chalk); }
 .have { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 10px; margin-bottom: 6px; }
-.have span { position: relative; width: 62px; height: 62px; background: url(art/skills.webp?v=4) 0 0 / 400% 400% no-repeat; }
+.have span { position: relative; width: 62px; height: 62px; background: url(art/skills.webp?v=5) 0 0 / 400% 400% no-repeat; }
 .have span b { position: absolute; right: -4px; bottom: -4px; font-size: 20px; color: var(--chalk-y); text-shadow: 0 0 3px #000, 0 0 3px #000; }
 
 /* ---------- 結算：聯絡簿 ---------- */
@@ -167,7 +167,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .lvc .t b { display: block; font-size: 34px; font-weight: 700; }
 .lvc .t span { display: block; font-size: 24px; color: #6e665c; }
 .lvc .its { display: flex; gap: 2px; }
-.lvc .its i { width: 44px; height: 44px; background: url(art/items.webp?v=4) 0 0 / 400% 400% no-repeat; }
+.lvc .its i { width: 44px; height: 44px; background: url(art/items.webp?v=5) 0 0 / 400% 400% no-repeat; }
 .lvc .best { position: absolute; right: 16px; top: 8px; font-size: 20px; color: var(--red); font-weight: 700; }
 .lvc.done .n { background: var(--pumpkin-d); }
 .sel-sub { margin-top: 14px; font-size: 24px; line-height: 1.5; color: var(--chalk); opacity: .85; }
@@ -213,8 +213,18 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .drops { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .drop { position: relative; height: 150px; padding: 8px 6px; display: flex; flex-direction: column; align-items: center; background: url(art/ui-paper.webp) left top / 220px auto; color: var(--pencil);
   box-shadow: 2px 5px 6px rgba(0, 0, 0, .5); }
-.drop .ic { width: 70px; height: 70px; background: url(art/skills.webp?v=4) 0 0 / 400% 400% no-repeat; }
+.drop .ic { width: 70px; height: 70px; background: url(art/skills.webp?v=5) 0 0 / 400% 400% no-repeat; }
 .drop b { font-size: 24px; } .drop em { font-style: normal; font-size: 20px; color: #6e665c; }
 .drop .x { position: absolute; right: 6px; top: 6px; padding: 0 6px; font-size: 18px; font-weight: 700; color: #fff; background: var(--red); }
 .drop.r2 { box-shadow: 0 0 0 3px #2f6fb0, 2px 5px 6px rgba(0, 0, 0, .5); } .drop.r3 { box-shadow: 0 0 0 3px #7b3fa8, 2px 5px 6px rgba(0, 0, 0, .5); }
 .drop.skip { justify-content: center; background: #f3d86e; }
+
+/* ---------- 難度切換：一般／困難 ---------- */
+.diff { display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 6px; }
+.diff span { font-size: 26px; color: var(--chalk); text-shadow: 0 2px 4px #000; }
+.diff button { height: 60px; min-width: 120px; padding: 0 16px; font-size: 28px; font-weight: 700; color: var(--chalk); border: 3px dashed rgba(244, 240, 227, .5); background: rgba(16, 23, 34, .55); }
+.diff button.on { color: var(--pencil); border: 0; background: url(art/ui-paper.webp) left top / 220px auto; box-shadow: 2px 4px 4px rgba(0, 0, 0, .4); }
+.diff button[data-h="1"].on { background: #c8322b; color: #fff; }
+#select .diff { justify-content: flex-start; margin-top: 18px; }
+.sel-sub.small { font-size: 22px; margin-top: 8px; }
+.xp .mode { padding: 0 8px; font-size: 20px; font-weight: 700; color: #fff; background: #c8322b; }

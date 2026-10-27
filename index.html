@@ -23,13 +23,13 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="小編萬聖夜｜山頂國小">
 <meta name="twitter:image" content="https://pokemonida99.github.io/bian-halloween/og-landscape.jpg?v=1">
-<link rel="icon" href="icon-192.png?v=4">
-<link rel="apple-touch-icon" href="icon-180.png?v=4">
+<link rel="icon" href="icon-192.png?v=5">
+<link rel="apple-touch-icon" href="icon-180.png?v=5">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 <canvas id="cv"></canvas>
@@ -37,7 +37,7 @@
 
   <!-- 遊戲中 -->
   <div id="hud" class="hide">
-    <div class="xp"><b id="lvN">Lv 1</b><i><em id="xpBar"></em></i></div>
+    <div class="xp"><b id="lvN">Lv 1</b><span class="mode hide" id="modeTag">困難</span><i><em id="xpBar"></em></i></div>
     <div class="h1">
       <button class="ib" id="bPause" aria-label="暫停"><svg viewBox="0 0 40 40"><path d="M14 10 V30 M26 10 V30"/></svg></button>
       <div class="slots" id="slots"></div>
@@ -88,12 +88,13 @@
   <!-- 標題 -->
   <div id="title" class="screen hide">
     <div class="school">山頂國小</div>
-    <h1><img class="logo" src="art/logo.webp?v=4" alt="小編萬聖夜"></h1>
+    <h1><img class="logo" src="art/logo.webp?v=5" alt="小編萬聖夜"></h1>
     <p class="sub">萬聖節晚會前，南瓜仔佔領了校舍</p>
     <div class="t-btns">
       <button class="btn big hide" id="bContinue">繼續</button>
       <button class="btn big" id="bStart">開始</button>
       <button class="btn ghost" id="bSelect">選關</button>
+      <div class="diff" id="diffT"><span>難度</span><button data-h="0">一般</button><button data-h="1">困難</button></div>
     </div>
     <p class="how">拖曳畫面走路・碰到梯子往上推就爬・攻擊全自動</p>
     <button class="op-again" id="bOP">再看一次片頭</button>
@@ -104,13 +105,15 @@
   <div id="select" class="screen hide">
     <div class="sel-head"><button class="tag" id="bBack">返回</button><h2>選關</h2></div>
     <p class="sel-sub">每一關都可以直接玩；打到一半離開會自動存檔，標題畫面按「繼續」接著玩</p>
+    <div class="diff" id="diffS"><span>難度</span><button data-h="0">一般</button><button data-h="1">困難</button></div>
+    <p class="sel-sub small" id="diffNote"></p>
     <div id="levels"></div>
   </div>
 
   <!-- 片頭 -->
   <div id="op" class="screen hide">
     <p class="op-line" id="opLine">山頂國小・萬聖節的晚上</p>
-    <h1><img class="logo" id="opLogo" src="art/logo.webp?v=4" alt="小編萬聖夜"></h1>
+    <h1><img class="logo" id="opLogo" src="art/logo.webp?v=5" alt="小編萬聖夜"></h1>
     <p class="op-sub" id="opSub">南瓜仔佔領了校舍！</p>
     <button class="op-skip" id="opSkip">跳過</button>
   </div>
@@ -122,9 +125,9 @@
   </div>
 </div>
 
-<script src="js/data.js?v=4"></script>
-<script src="js/core.js?v=4"></script>
-<script src="js/audio.js?v=4"></script>
+<script src="js/data.js?v=5"></script>
+<script src="js/core.js?v=5"></script>
+<script src="js/audio.js?v=5"></script>
 <script>
   if (!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('importmap'))) {
     const sc = document.createElement('script'); sc.async = true; sc.src = 'vendor/es-module-shims.js'; document.head.appendChild(sc);
@@ -133,6 +136,6 @@
 <script type="importmap">
 {"imports":{"three":"./vendor/three/build/three.module.min.js","three/addons/":"./vendor/three/examples/jsm/"}}
 </script>
-<script type="module" src="js/main.js?v=4"></script>
+<script type="module" src="js/main.js?v=5"></script>
 </body>
 </html>
