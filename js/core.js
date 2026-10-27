@@ -704,7 +704,6 @@
       const sk = D.SKILLS[k], own = !!S.sk[k];
       let w = (own ? 1.6 : 1) * (sk.kind === 'w' ? 1.15 : 0.85) * (sk.rare ? D.RARE[sk.rare].w : 1);
       if (k === 'bento' && S.p.hp < S.p.max * 0.5) w *= 2.5;
-      if (k === 'hero' && !own) w *= 1.8;   // 針筒超人：稀有但不要太難遇到
       if (full && sk.kind === 'w' && !own) w *= 0.45;   // 帶滿了：新武器少出現一點
       return { k, w };
     });
@@ -748,11 +747,8 @@
     if (S.state !== 'play') return;
     // 有升級或寶箱就先暫停選卡
     if (S.pending > 0 || S.chestPick > 0) {
-      const chest = S.chestPick > 0 && S.t > 0;
       if (S.chestPick > 0) S.chestPick--; else S.pending--;
       S.offer = makeOffer(S);
-      // 每關第一個南瓜寶箱：還沒有針筒超人就一定有這張
-      if (chest && !S.heroOffered && !S.sk.hero) { S.heroOffered = true; if (!S.offer.includes('hero')) S.offer[(S.rng() * S.offer.length) | 0] = 'hero'; }
       S.state = 'pick'; S.ev.push({ k: 'offer' });
       return;
     }
@@ -777,12 +773,12 @@
       gems: S.gems.slice(-150).map((g) => pick(g, ['x', 'y', 'fy', 'v', 'heart', 'big'])),
       pools: S.pools.map((p) => ({ ...p })), buddies: S.buddies.map((b) => ({ ...b, st: 'orbit' })),
       helper: S.helper ? { ...S.helper, tg: null } : null,
-      pending: S.pending + (S.offer ? 1 : 0), chestPick: S.chestPick, spawnAcc: S.spawnAcc, hordeT: S.hordeT, kills: S.kills, nid: S.nid, heroSeen: S.heroSeen, heroOffered: S.heroOffered,
+      pending: S.pending + (S.offer ? 1 : 0), chestPick: S.chestPick, spawnAcc: S.spawnAcc, hordeT: S.hordeT, kills: S.kills, nid: S.nid, heroSeen: S.heroSeen,
     };
   }
   function restore(o, opt = {}) {
     const S = create(o.li, { seed: 1, ...opt, hard: !!o.hard });
-    Object.assign(S, { t: o.t, rs: o.rs, sk: o.sk, tm: o.tm, pending: o.pending, chestPick: o.chestPick, spawnAcc: o.spawnAcc, hordeT: o.hordeT, kills: o.kills, nid: o.nid, heroSeen: o.heroSeen, heroOffered: o.heroOffered });
+    Object.assign(S, { t: o.t, rs: o.rs, sk: o.sk, tm: o.tm, pending: o.pending, chestPick: o.chestPick, spawnAcc: o.spawnAcc, hordeT: o.hordeT, kills: o.kills, nid: o.nid, heroSeen: o.heroSeen });
     Object.assign(S.p, o.p);
     o.items.forEach(([got, prog], i) => { S.items[i].got = got; S.items[i].prog = prog; });
     o.chests.forEach((open, i) => { S.chests[i].open = open; });
@@ -795,5 +791,5 @@
     return S;
   }
 
-  G.CORE = { create, step, choose, needDrop, weapons, serialize, restore, floorY, pc, pFloor, sv, onScreen, updCam, ROOM: D.ROOM };
+  G.CORE = { create, step, choose, needDrop, weapons, makeOffer, serialize, restore, floorY, pc, pFloor, sv, onScreen, updCam, ROOM: D.ROOM };
 })(typeof window !== 'undefined' ? window : globalThis);
